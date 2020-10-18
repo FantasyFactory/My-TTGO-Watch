@@ -27,7 +27,6 @@
     void image_ticker_setup_setup( uint32_t tile_num );
     
     #define DEFAULT_URL "http://www.ingvitoabate.it/img.php?img=https://www.webcambiella.it/images/FI9800P_00626E815CE8/snap/current.jpg"
-    //#define DEFAULT_URL "http://www.ingvitoabate.it/organigramma/3.png"
 
 #endif // _IMAGE_TICKER_SETUP_H
 

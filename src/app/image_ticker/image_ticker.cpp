@@ -52,7 +52,7 @@ LV_IMG_DECLARE(info_1_16px);
 
 // declare callback functions for the app and widget icon to enter the app
 static void enter_image_ticker_event_cb( lv_obj_t * obj, lv_event_t event );
-static void enter_image_ticker_widget_event_cb( lv_obj_t * obj, lv_event_t event );
+
 
 /*
  * setup routine for image_ticker app
@@ -78,6 +78,7 @@ void image_ticker_setup( void ) {
     // the resulting c-file can put in /app/image_ticker/images/ and declare it like LV_IMG_DECLARE( your_icon );
     image_ticker_widget = widget_register( "ImgTick", &image_ticker_64px, enter_image_ticker_widget_event_cb );
     widget_set_indicator( image_ticker_widget, ICON_INDICATOR_UPDATE );
+    static void enter_image_ticker_widget_event_cb( lv_obj_t * obj, lv_event_t event );
 #endif // IMAGE_TICKER_WIDGET
 
     // init main and setup tile, see image_ticker_main.cpp and image_ticker_setup.cpp
@@ -113,6 +114,8 @@ static void enter_image_ticker_event_cb( lv_obj_t * obj, lv_event_t event ) {
     }    
 }
 
+
+#ifdef IMAGE_TICKER_WIDGET
 /*
  *
  */
@@ -124,6 +127,7 @@ static void enter_image_ticker_widget_event_cb( lv_obj_t * obj, lv_event_t event
                                         break;
     }    
 }
+#endif
 
 image_ticker_config_t *image_ticker_get_config( void ) {
     return( &image_ticker_config );

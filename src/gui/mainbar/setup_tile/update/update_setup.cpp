@@ -162,12 +162,6 @@ static void exit_update_check_setup_event_cb( lv_obj_t * obj, lv_event_t event )
     }
 }
 
-static void reset_btn_event_handler( lv_obj_t * obj, lv_event_t event ) {
-    if(event == LV_EVENT_CLICKED) {
-        lv_textarea_set_text(update_check_url_textfield, FIRMWARE_UPDATE_URL);  
-    }
-}
-
 void update_save_config( void ) {
     if ( SPIFFS.exists( UPDATE_CONFIG_FILE ) ) {
         SPIFFS.remove( UPDATE_CONFIG_FILE );

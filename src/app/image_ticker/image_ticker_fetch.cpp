@@ -27,7 +27,7 @@
 
 // Include SPIFFS
 #include "SPIFFS.h" // ESP32 only
-#include "lodepng.h"
+
 
 
 bool image_ticker_fetch_jpg() {
