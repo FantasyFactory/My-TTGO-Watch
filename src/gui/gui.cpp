@@ -48,7 +48,6 @@
 #include "hardware/powermgm.h"
 #include "hardware/display.h"
 
-
 lv_obj_t *img_bin;
 
 bool gui_powermgm_event_cb( EventBits_t event, void *arg );
@@ -81,7 +80,9 @@ void gui_setup( void )
 
     statusbar_setup();
     lv_disp_trig_activity( NULL );
+
     gui_set_background_image( display_get_background_image() );
+
     keyboard_setup();
 
     powermgm_register_cb( POWERMGM_STANDBY | POWERMGM_WAKEUP | POWERMGM_SILENCE_WAKEUP, gui_powermgm_event_cb, "gui" );
@@ -138,6 +139,22 @@ void gui_set_background_image ( uint32_t background_image ) {
             break;
         case 4:
             lv_obj_set_hidden( img_bin, true );
+            break;
+        case 5:
+            FILE* file;
+            file = fopen( BACKGROUNDIMAGE, "rb" );
+
+            if ( file ) {
+                log_i("set custom background image from spiffs");
+                fclose( file );
+                lv_img_set_src( img_bin, BACKGROUNDIMAGE );
+                lv_obj_align( img_bin, NULL, LV_ALIGN_CENTER, 0, 0 );
+                lv_obj_set_hidden( img_bin, false );
+            }
+            else {
+                log_i("not custom background image found on spiffs, set to black");
+                lv_obj_set_hidden( img_bin, true );
+            }
             break;
         default:
             lv_obj_set_hidden( img_bin, true ); 
