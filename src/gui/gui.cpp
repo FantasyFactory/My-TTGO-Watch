@@ -146,7 +146,7 @@ void gui_set_background_image ( uint32_t background_image ) {
         case 5:
             lv_obj_set_hidden( img_bin, true );
             break;
-        case 5:
+        case 6:
             FILE* file;
             file = fopen( BACKGROUNDIMAGE, "rb" );
 
