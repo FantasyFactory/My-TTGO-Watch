@@ -149,8 +149,17 @@ void DoBasic() {
             "PRINT \"Hello world !\"\n"
             "FOR i=1 to 3\n"
             "  PRINT i\n"
-            "NEXT i\n"
-            "PRINT \"Yes I'm working\"\n";
+            "NEXT i\n"            
+            "f = fopen(\"/spiffs/file.txt\", \"w+\")\n"
+            "fwrite_line(f, \"hello world!\") ' Write a line\n"
+            "fclose(f)\n"            
+            "PRINT \"Yes I'm working\n\""
+            "t = GetTime()\n"
+            "f = fopen(\"/spiffs/file.txt\", \"w+\")\n"
+            "fwrite_line(f,t) 'Write the time\n"
+            "fclose(f)\n"
+            "PRINT \"Now is \""
+            "PRINT t\n";
 
     Serial.printf("Free heap: %d\r\n", ESP.getFreeHeap());
     Serial.printf("Free PSRAM: %d\r\n", ESP.getFreePsram());
@@ -162,6 +171,7 @@ void DoBasic() {
 	mb_open(&bas);
     enableArduinoBindings(bas);
     enableLVGLprint(bas, output);
+    enableFileModule(bas);
 	mb_load_string(bas, program, true);
 	mb_run(bas, true);
 	mb_close(&bas);

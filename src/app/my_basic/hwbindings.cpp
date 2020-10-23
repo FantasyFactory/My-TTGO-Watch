@@ -280,6 +280,25 @@ int bas_millis(struct mb_interpreter_t* s, void** l) {
 }
 
 
+int bas_gettime(struct mb_interpreter_t* s, void** l) {
+  int result = MB_FUNC_OK;
+
+  struct tm  info;
+  char time_str[64]="";
+  mb_assert(s && l);
+  mb_check(mb_attempt_open_bracket(s, l));
+  mb_check(mb_attempt_close_bracket(s, l));
+      
+  time_t now;
+  time( &now );
+  localtime_r( &now, &info );
+  int h = info.tm_hour;
+  int m = info.tm_min;
+  snprintf( time_str, sizeof(time_str), "%02d:%02d", h, m );
+  mb_check(mb_push_string(s, l, mb_memdup(time_str, strlen(time_str))));
+
+  return result;
+}
 
 //PEEK(bytearray, index)
 int bas_peek(struct mb_interpreter_t* s, void** l) {
@@ -436,7 +455,7 @@ void enableArduinoBindings(struct mb_interpreter_t* bas)
 
   mb_register_func(bas, "millis", bas_millis);
   mb_register_func(bas, "DELAY", bas_delay);
-
+  mb_register_func(bas, "GetTime", bas_gettime);
 
   mb_register_func(bas, "peek", bas_peek);
   mb_register_func(bas, "poke", bas_poke);
