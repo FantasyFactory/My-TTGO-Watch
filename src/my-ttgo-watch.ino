@@ -52,6 +52,12 @@
 #include "app/powermeter/powermeter_app.h"
 #include "app/my_basic/my_basic_app.h"
 
+#define FTPserver
+#ifdef FTPserver
+#include <ESP8266FtpServer.h>
+FtpServer ftpSrv;   //set #define FTP_DEBUG in ESP8266FtpServer.h to see ftp verbose on serial
+#endif
+
 TTGOClass *ttgo = TTGOClass::getWatch();
 
 void setup()
@@ -132,9 +138,14 @@ void setup()
     callback_print();
     //display_event_logging_enable(true);
 
+    #ifdef FTPserver
+    ftpSrv.begin("TTWatch","password");
+    #endif
 }
 
 void loop() {
     powermgm_loop();
-
+    #ifdef FTPserver
+    ftpSrv.handleFTP();
+    #endif
 }
