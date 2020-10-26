@@ -52,7 +52,7 @@ void my_basic_app_task( lv_task_t * task );
 
 static lv_obj_t *output;
 
-void DoBasic( void );
+int DoBasic( void );
 
 void my_basic_app_main_setup( uint32_t tile_num ) {
 
@@ -142,24 +142,37 @@ void my_basic_app_task( lv_task_t * task ) {
     // put your code her
 }
 
-void DoBasic() {
+int DoBasic() {
     struct mb_interpreter_t* bas = NULL;
+    #define dbg(x) Serial.println(x)
+    #define dbg 
 
-    const char *program =
-            "PRINT \"Hello world !\"\n"
-            "FOR i=1 to 3\n"
-            "  PRINT i\n"
-            "NEXT i\n"            
-            "f = fopen(\"/spiffs/file.txt\", \"w+\")\n"
-            "fwrite_line(f, \"hello world!\") ' Write a line\n"
-            "fclose(f)\n"            
-            "PRINT \"Yes I'm working\n\""
-            "t = GetTime()\n"
-            "f = fopen(\"/spiffs/file.txt\", \"w+\")\n"
-            "fwrite_line(f,t) 'Write the time\n"
-            "fclose(f)\n"
-            "PRINT \"Now is \""
-            "PRINT t\n";
+    FILE * pFile;
+    long lSize;
+    char * buffer;
+    size_t result;
+
+    pFile = fopen ( "/spiffs/myfile.bas" , "r" );
+    if (pFile==NULL) {Serial.printf ("File error"); return false;}
+
+    // obtain file size:
+    fseek (pFile , 0 , SEEK_END);
+    lSize = ftell (pFile);
+    rewind (pFile);
+
+    // allocate memory to contain the whole file:
+    buffer = (char*) malloc (sizeof(char)*lSize+1);
+    if (buffer == NULL) {Serial.printf ("Memory error"); return false;}
+
+    // copy the file into the buffer:
+    result = fread (buffer,1,lSize,pFile);
+    buffer[lSize]=0;
+    if (result != lSize) {Serial.printf ("Reading error"); return false;}
+
+
+    // terminate
+    fclose (pFile);
+
 
     Serial.printf("Free heap: %d\r\n", ESP.getFreeHeap());
     Serial.printf("Free PSRAM: %d\r\n", ESP.getFreePsram());
@@ -172,12 +185,14 @@ void DoBasic() {
     enableArduinoBindings(bas);
     enableLVGLprint(bas, output);
     enableFileModule(bas);
-	mb_load_string(bas, program, true);
+	mb_load_string(bas, buffer, true);
 	mb_run(bas, true);
 	mb_close(&bas);
 	mb_dispose();
-    lv_label_ins_text(output, LV_LABEL_POS_LAST, "My Basic END\n");
+    lv_label_ins_text(output, LV_LABEL_POS_LAST, "\nMy Basic END");
 
+
+    free (buffer);
     Serial.printf("My Basic END\r\n");
 
     Serial.printf("Free heap: %d\r\n", ESP.getFreeHeap());

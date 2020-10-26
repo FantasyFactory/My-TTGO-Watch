@@ -284,17 +284,18 @@ int bas_gettime(struct mb_interpreter_t* s, void** l) {
   int result = MB_FUNC_OK;
 
   struct tm  info;
-  char time_str[64]="";
+  char time_str[6]={0,0,0,0,0,0};
   mb_assert(s && l);
   mb_check(mb_attempt_open_bracket(s, l));
   mb_check(mb_attempt_close_bracket(s, l));
-      
+
   time_t now;
   time( &now );
   localtime_r( &now, &info );
   int h = info.tm_hour;
   int m = info.tm_min;
   snprintf( time_str, sizeof(time_str), "%02d:%02d", h, m );
+  Serial.printf("GetTime=\"%s\"", time_str);
   mb_check(mb_push_string(s, l, mb_memdup(time_str, strlen(time_str))));
 
   return result;
