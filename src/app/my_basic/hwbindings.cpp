@@ -26,6 +26,7 @@ extern "C"
 }
 
 #include "Arduino.h"
+#include "hardware/pmu.h"
 
 #include "lvgl/lvgl.h"
 static lv_obj_t *MyBasic_output;
@@ -55,9 +56,6 @@ static int bas_bytearray(struct mb_interpreter_t* s, void** l) {
 }
 
 
-
-
-
 int xprintf(const char *format, ...)
 {
   char *buf = (char *)malloc(128); // Massimo 128 bytes per linea ? Nessun controllo qui !
@@ -74,21 +72,6 @@ int xprintf(const char *format, ...)
   va_end(ap);
   free(buf);
   Serial.println("\n");
-}
-
-
-
-int lvglprint(const char *format, ...)
-{
-  char *buf = (char *)malloc(128); // Massimo 128 bytes per linea ? Nessun controllo qui !
-
-  va_list ap;
-  va_start(ap, format);
-  vsnprintf(buf, 128, format, ap);
-  lv_label_ins_text(MyBasic_output, LV_LABEL_POS_LAST, buf);
-  va_end(ap);
-  free(buf);
-
 }
 
 
@@ -392,7 +375,6 @@ int bas_poke(struct mb_interpreter_t* s, void** l) {
   mb_check(mb_attempt_close_bracket(s, l));
 
 
-
   uint8_t * p = ((uint8_t *)n);
   *p = (uint8_t)val;
   return result;
@@ -442,6 +424,49 @@ int bas_pokeas(struct mb_interpreter_t* s, void** l) {
   return result;
 }
 
+/************************ LVGL specific **************************/
+int lvglprint(const char *format, ...) {
+  char *buf = (char *)malloc(128); // Massimo 128 bytes per linea ? Nessun controllo qui !
+
+  va_list ap;
+  va_start(ap, format);
+  vsnprintf(buf, 128, format, ap);
+  lv_label_ins_text(MyBasic_output, LV_LABEL_POS_LAST, buf);
+  va_end(ap);
+  free(buf);
+
+}
+
+int lvglclear (struct mb_interpreter_t* s, void** l) {
+
+  int result = MB_FUNC_OK;
+
+  mb_assert(s && l);
+
+  lv_label_set_text(MyBasic_output, "");
+
+  return result;
+}
+
+
+
+/************************ TTGO-Watch specific **************************/
+
+int bas_getbattpct(struct mb_interpreter_t* s, void** l) {
+  int result = MB_FUNC_OK;
+
+  mb_assert(s && l);
+  mb_check(mb_attempt_open_bracket(s, l));
+  mb_check(mb_attempt_close_bracket(s, l));
+
+  int r;
+  r=pmu_get_battery_percent();
+  Serial.printf("GetBatteryPct=%d%%", r);
+  mb_check(mb_push_int(s, l, r));
+
+  return result;
+}
+
 
 void enableArduinoBindings(struct mb_interpreter_t* bas)
 {
@@ -465,11 +490,15 @@ void enableArduinoBindings(struct mb_interpreter_t* bas)
   mb_register_func(bas, "malloc", bas_bytearray);
   mb_register_func(bas, "sersend", bas_sersend);
 
+  /**** TTGO Watch specific ***/
+  mb_register_func(bas, "GetBatteryPct", bas_getbattpct);
 
 }
 
+/**** LVGL Specific ****/
 void enableLVGLprint(struct mb_interpreter_t* bas, lv_obj_t *l)
 {
   MyBasic_output=l;
   mb_set_printer(bas, lvglprint);
+  mb_register_func(bas, "CLS", lvglclear);
 }
