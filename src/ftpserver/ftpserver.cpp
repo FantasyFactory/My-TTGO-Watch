@@ -19,31 +19,28 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-#ifndef _KEYBOARD_H
-    #define _KEYBOARD_H
+#include <Arduino.h>
+#include <ESP8266FtpServer.h>
 
-    #include <TTGO.h>
+#include "hardware/powermgm.h"
 
-    /**
-     * @brief setup onscreen keyboard
-     */
-    void keyboard_setup( void );
-    void num_keyboard_setup( void );
-    /**
-     * @brief   activate onscreen keyboard and set output to an lv_obj aka textarea
-     * 
-     * @param   textarea    point to an lv_obj
-     */
-    void keyboard_set_textarea( lv_obj_t *textarea );
-    void num_keyboard_set_textarea( lv_obj_t *textarea );
-    /**
-     * @brief   hide onscreen keyboard
-     */
-    void keyboard_hide( void );
-    /**
-     * @brief   show onscreen keyboard
-     */
-    void keyboard_show( void );
-    void num_keyboard_show( void );
+FtpServer ftpSrv;   //set #define FTP_DEBUG in ESP8266FtpServer.h to see ftp verbose on serial
+bool ftpserver_powermgm_event_loop_cb( EventBits_t event, void *arg );
 
-#endif // _KEYBOARD_H
+void ftpserver_start( const char *user, const char *pass ) {
+    ftpSrv.begin( user, pass );
+    log_i("use ftp user/password: %s/%s", user, pass );
+    powermgm_register_loop_cb( POWERMGM_WAKEUP | POWERMGM_SILENCE_WAKEUP, ftpserver_powermgm_event_loop_cb, "handle ftp" );
+}
+
+bool ftpserver_powermgm_event_loop_cb( EventBits_t event, void *arg ) {
+    switch( event ) {
+        case POWERMGM_SILENCE_WAKEUP:
+            ftpSrv.handleFTP();
+            break;
+        case POWERMGM_WAKEUP:
+            ftpSrv.handleFTP();
+            break;
+    }
+    return( true );
+}
