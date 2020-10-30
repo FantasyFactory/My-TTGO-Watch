@@ -35,8 +35,8 @@
 
 lv_obj_t *my_basic_app_main_tile = NULL;
 lv_style_t my_basic_app_main_style;
-lv_style_t my_basic_page_main_style;
-lv_style_t my_basic_text_main_style;
+
+
 
 lv_task_t * _my_basic_app_task;
 
@@ -50,7 +50,10 @@ static void enter_my_basic_app_setup_event_cb( lv_obj_t * obj, lv_event_t event 
 static void refresh_output_event_cb( lv_obj_t * obj, lv_event_t event );
 void my_basic_app_task( lv_task_t * task );
 
-static lv_obj_t *output;
+static lv_obj_t *my_basic_page;
+static lv_style_t my_basic_page_main_style;
+// static lv_obj_t *my_basic_output_label;
+// static lv_style_t my_basic_output_style;
 
 int DoBasic( void );
 
@@ -79,23 +82,23 @@ void my_basic_app_main_setup( uint32_t tile_num ) {
 
 
         /*Create a page*/
-    lv_obj_t * page = lv_page_create(my_basic_app_main_tile, NULL);
+    my_basic_page = lv_page_create(my_basic_app_main_tile, NULL);
     lv_style_copy( &my_basic_page_main_style, &my_basic_app_main_style );
     lv_style_set_bg_opa( &my_basic_page_main_style, LV_OBJ_PART_MAIN, LV_OPA_50);
-    lv_obj_set_size(page, 240, 192);
-    lv_obj_align(page, NULL, LV_ALIGN_IN_TOP_MID, 0, 0);
+    lv_obj_set_size(my_basic_page, 240, 96);
+    lv_obj_align(my_basic_page, NULL, LV_ALIGN_IN_TOP_MID, 0, 0);
 
 
 
-    /*Create a label on the page*/
-    lv_style_copy( &my_basic_text_main_style, &my_basic_page_main_style );
-    lv_style_set_text_font( &my_basic_text_main_style, LV_STATE_DEFAULT, &Ubuntu_16px);
-    lv_style_set_text_color(&my_basic_text_main_style, LV_STATE_DEFAULT, LV_COLOR_BLUE);
-    output = lv_label_create(page, NULL);
-    lv_obj_add_style( output, LV_OBJ_PART_MAIN, &my_basic_text_main_style );
-    //lv_label_set_long_mode(output, LV_LABEL_LONG_SROLL);            /*Automatically scroll long lines*/
-    lv_obj_set_width(output, lv_page_get_width_fit(page));          /*Set the label width to max value to not show hor. scroll bars*/
-    lv_label_set_text(output, "");
+    // /*Create a label on the page*/
+    // lv_style_copy( &my_basic_output_style, &my_basic_page_main_style );
+    // lv_style_set_text_font( &my_basic_output_style, LV_STATE_DEFAULT, &Ubuntu_16px);
+    // lv_style_set_text_color(&my_basic_output_style, LV_STATE_DEFAULT, LV_COLOR_BLUE);
+    // my_basic_output_label = lv_label_create(my_basic_page, NULL);
+    // lv_obj_add_style( my_basic_output_label, LV_OBJ_PART_MAIN, &my_basic_output_style );
+    // //lv_label_set_long_mode(my_basic_output_label, LV_LABEL_LONG_SROLL);            /*Automatically scroll long lines*/
+    // lv_obj_set_width(my_basic_output_label, lv_page_get_width_fit(my_basic_page));          /*Set the label width to max value to not show hor. scroll bars*/
+    // lv_label_set_text(my_basic_output_label, "");
 
 
     lv_obj_t * reload_btn = lv_imgbtn_create( my_basic_app_main_tile, NULL);
@@ -145,7 +148,7 @@ void my_basic_app_task( lv_task_t * task ) {
 int DoBasic() {
     struct mb_interpreter_t* bas = NULL;
     #define dbg(x) Serial.println(x)
-    #define dbg 
+    //#define dbg 
 
     FILE * pFile;
     long lSize;
@@ -179,17 +182,18 @@ int DoBasic() {
     
     Serial.printf("My Basic RUN\n");
 
-    lv_label_set_text(output, "My Basic RUN\n");
+    //lv_label_set_text(my_basic_output_label, "My Basic RUN\n");
 	mb_init();
 	mb_open(&bas);
     enableArduinoBindings(bas);
-    enableLVGLprint(bas, output);
+    //enableLVGLprint(bas, my_basic_output_label);
+    enableLVGL(bas, my_basic_page, my_basic_page_main_style);
     enableFileModule(bas);
 	mb_load_string(bas, buffer, true);
 	mb_run(bas, true);
 	mb_close(&bas);
 	mb_dispose();
-    lv_label_ins_text(output, LV_LABEL_POS_LAST, "\nMy Basic END");
+    //lv_label_ins_text(my_basic_output_label, LV_LABEL_POS_LAST, "\nMy Basic END");
 
 
     free (buffer);
