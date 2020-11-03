@@ -21,9 +21,9 @@
 
 #include "Arduino.h"
 #include "bas_arduino.h"
+#include "hw_bindings.h"
 
 #define dbg(x) Serial.println(x)
-#define dbg 
 
 //The high level OOP API
 _MyBasic MyBasic;
@@ -51,16 +51,14 @@ mb_interpreter_t* bas_parent = NULL;
 //with of interpreters uses this.
 SemaphoreHandle_t bas_gil;
 
-
 //The userdata struct for each loadedProgram interpreter
-struct loadedProgram
-{
+struct loadedProgram {
   //This is how we can know which program to replace when updating with a new version
   char programID[16];
+
   //The first 30 bytes of a file identify its "version" so we don't
   //replace things that don't need replacing.
   char hash[30];
-
 
   //This is the input buffer that gives us an easy way to send things to a program
   //in excess of the 1500 byte limit for UDP. We might also use it for other stuff later.
@@ -77,33 +75,22 @@ struct loadedProgram
   char busy; 
 };
 
-
-
-
-
 //Given a string program ID, return the mb interpreter for it, or 0,
 //If it's not loaded.
-static mb_interpreter_t** _programForId(const char * id)
-{
+static mb_interpreter_t** _programForId(const char * id) {
   struct loadedProgram * ud;
-  if (id == 0)
-  {
-    if (bas_parent)
-    {
+  if (id == 0) {
+    if (bas_parent) {
       return &bas_parent;
-    }
-    else
-    {
+    } else {
       return 0;
     }
   }
-  for (char i = 0; i < 16; i++)
-  {
-    if (loadedPrograms[i])
-    {
+  for (char i = 0; i < 16; i++) {
+    if (loadedPrograms[i]) {
       mb_get_userdata(loadedPrograms[i], (void**)&ud);
-      if (strcmp(ud->programID, id) == 0)
-      { dbg("request for");
+      if (strcmp(ud->programID, id) == 0) { 
+        dbg("request for");
         dbg(id);
         dbg("Got interpreter for");
         dbg(ud->programID);
@@ -117,17 +104,15 @@ static mb_interpreter_t** _programForId(const char * id)
 
 ///This must be called under lock. We can't manage that because we don't
 ///Know what you plan to do with it.
-mb_interpreter_t * _MyBasic::getInterpreter(const char * id)
-{
+mb_interpreter_t * _MyBasic::getInterpreter(const char * id) {
   return *_programForId(id);
 }
+
 //Is an interpreter busy, regardless of if the parents are busy
-static char _mbisdirectlybusy(mb_interpreter_t * i)
-{
+static char _mbisdirectlybusy(mb_interpreter_t * i) {
   struct loadedProgram * ud;
   mb_get_userdata(i, (void**)&ud);
-  if(ud->busy)
-  {
+  if(ud->busy) {
     return 1;
   }
 
@@ -137,14 +122,11 @@ static char _mbisdirectlybusy(mb_interpreter_t * i)
 //Return true if the interpreter, any parent, or any child is busy.
 //We don't explicitly check children(we don't even have refs to them)
 //but the children increment all ancestor busy counts when they are busy.
-static char _mbisbusy(mb_interpreter_t * i)
-{
+static char _mbisbusy(mb_interpreter_t * i) {
   struct loadedProgram * ud;
-  while(i)
-  {
+  while(i) {
     mb_get_userdata(i, (void**)&ud);
-    if(ud->busy)
-    {
+    if(ud->busy) {
       return 1;
     }
     i=mb_get_parent(i);
@@ -155,12 +137,10 @@ static char _mbisbusy(mb_interpreter_t * i)
 
 
 //Mark a program as busy by incrementing the reference count
-static void _mbsetbusy(mb_interpreter_t * i)
-{
+static void _mbsetbusy(mb_interpreter_t * i) {
   struct loadedProgram * ud;
 
-  while(i)
-  {
+  while(i) {
     mb_get_userdata(i, (void**)&ud);
     ud->busy +=1;
     i=mb_get_parent(i);
@@ -168,12 +148,10 @@ static void _mbsetbusy(mb_interpreter_t * i)
   
 }
 
-static void _mbsetfree(mb_interpreter_t * i)
-{
+static void _mbsetfree(mb_interpreter_t * i) {
   struct loadedProgram * ud;
 
-  while(i)
-  {
+  while(i) {
     mb_get_userdata(i, (void**)&ud);
     ud->busy -=1;
     i=mb_get_parent(i);
@@ -182,8 +160,7 @@ static void _mbsetfree(mb_interpreter_t * i)
 
 
 //Represents a request to do something with
-struct BasRequest
-{
+struct BasRequest {
   //Pointer tp the target of the request
   mb_interpreter_t * interpreter;
   //Object that represents what the interpreter should do.
@@ -193,8 +170,7 @@ struct BasRequest
 };
 
 
-static void makeRequest(mb_interpreter_t * interpreter, mb_value_t * object)
-{
+static void makeRequest(mb_interpreter_t * interpreter, mb_value_t * object) {
   struct BasRequest br;
   br.interpreter = interpreter;
   br.object = object;
@@ -203,14 +179,11 @@ static void makeRequest(mb_interpreter_t * interpreter, mb_value_t * object)
 
 
 //Close a program by ID
-static void _closeProgram(const char * id)
-{
+static void _closeProgram(const char * id) {
   mb_interpreter_t ** old = _programForId(id);
 
-
   struct loadedProgram * ud;
-  if (*old == 0)
-  {
+  if (*old == 0) {
     return;
   }
 
@@ -218,8 +191,7 @@ static void _closeProgram(const char * id)
   mb_schedule_suspend(*old, MB_FUNC_END);
 
   ///Something can be "busy" without holding the lock if it yields.
- while(_mbisdirectlybusy(*old))
-  {
+ while(_mbisdirectlybusy(*old)) {
     MB_UNLOCK;
     delay(2500);
     MB_LOCK;
@@ -232,22 +204,17 @@ static void _closeProgram(const char * id)
 }
 
 
-
-
-static void BasicInterpreterTask(void *)
-{
+static void BasicInterpreterTask(void *) {
   struct BasRequest br;
   struct loadedProgram * ud;
 
-  while (1)
-  {
+  while (1) {
     xQueueReceive(request_queue, &br, portMAX_DELAY);
     MB_LOCK;
     dbg("Got task and lock,");
     //The only supported request right now is to run the loaded app,
     //marked by the object being the interpreter.
-    if(!(br.interpreter==(mb_interpreter_t*)br.object))
-    {
+    if(!(br.interpreter==(mb_interpreter_t*)br.object)) {
       dbg("unsupported request");
       return;
     }
@@ -256,8 +223,7 @@ static void BasicInterpreterTask(void *)
     //We yield for 2500ms while that particular program is busy.
     //Response time isn't an issue, programs should try to avoid
     //Requesting busy apps anyway.
-    while(_mbisdirectlybusy(br.interpreter))
-    {
+    while(_mbisdirectlybusy(br.interpreter)) {
       dbg("interpreter is busy, waiting");
       MB_UNLOCK;
       vTaskDelay(10);
@@ -266,8 +232,8 @@ static void BasicInterpreterTask(void *)
 
     _mbsetbusy(br.interpreter);
     dbg("running");
-     mb_run(br.interpreter, true);
-     dbg("exited");
+    mb_run(br.interpreter, true);
+    dbg("exited");
     _mbsetfree(br.interpreter);
     MB_UNLOCK;
   }
@@ -290,12 +256,9 @@ int bas_delay_rtos(struct mb_interpreter_t* s, void** l) {
   return result;
 }
 
+void _MyBasic::begin(char numThreads) {
 
-void _MyBasic::begin(char numThreads)
-{
-
-  for (char i = 0; i < 16; i++)
-  {
+  for (char i = 0; i < 16; i++) {
     loadedPrograms[i] == 0;
   }
   mb_init();
@@ -319,8 +282,7 @@ void _MyBasic::begin(char numThreads)
   xSemaphoreGive(bas_gil);
   request_queue = xQueueCreate( 25, sizeof(struct BasRequest));
 
-  for(char i =0; i<numThreads; i++)
-  {
+  for(char i =0; i<numThreads; i++) {
     xTaskCreatePinnedToCore(BasicInterpreterTask,
                 "MyBasic",
                 stackSize,
@@ -333,19 +295,16 @@ void _MyBasic::begin(char numThreads)
 }
 
 
-
-void _MyBasic::lock()
-{
+void _MyBasic::lock() {
   MB_LOCK;
 }
 
-void _MyBasic::unlock()
-{
+void _MyBasic::unlock() {
   MB_UNLOCK;
 }
+
 //Allow someone else to use the my-basic GIL, and don't return until we have the lock again.
-static void basyield(mb_interpreter_t *)
-{
+static void basyield(mb_interpreter_t *) {
   MB_UNLOCK;
   vTaskDelay(2);
   MB_LOCK;
@@ -355,22 +314,16 @@ static void basyield(mb_interpreter_t *)
 //Polls the interpreter until it's free. waiting sleepfor in between.
 //Should force_close be true, it will wait a maximum of retries before
 //Closing everything.
-void mb_wait_directly_free(mb_interpreter_t *s,int sleepfor, char force_close, int retries)
-{
-  
+void mb_wait_directly_free(mb_interpreter_t *s,int sleepfor, char force_close, int retries) {
       ///Something can be "busy" without holding the lock if it yields.
-     while(_mbisdirectlybusy(s))
-      {
+     while(_mbisdirectlybusy(s)) {
         MB_UNLOCK;
-
         delay(sleepfor);
         MB_LOCK;
 
-        if (force_close)
-        {
+        if (force_close) {
           retries -=1;
-          if (retries ==-1)
-          {
+          if (retries ==-1) {
             dbg("Taking too long, stopping");
             mb_schedule_suspend(s, MB_FUNC_END);
             retries = 5;
@@ -379,31 +332,22 @@ void mb_wait_directly_free(mb_interpreter_t *s,int sleepfor, char force_close, i
     }
 }
 
-
-
-
-
 //Load a new program with the given ID, replacing any with the same ID if the
 //first 30 bytes are different.
-int _loadProgram(const char * code, const char * id)
-{
+int _loadProgram(const char * code, const char * id) {
   mb_interpreter_t ** old = _programForId(id);
   struct loadedProgram * ud = 0;
   //Check if programs are the same
 
-  if (old)
-  {
+  if (old) {
     mb_get_userdata(*old, (void **)&ud);
     //Check if the versions are the same
-    if (memcmp(ud->hash, code, 30) == 0)
-    {
+    if (memcmp(ud->hash, code, 30) == 0) {
       return 0;
     }
 
-    
     ///Something can be "busy" without holding the lock if it yields.
-     while(_mbisdirectlybusy(*old))
-      {
+     while(_mbisdirectlybusy(*old)) {
         MB_UNLOCK;
         delay(2500);
         MB_LOCK;
@@ -412,27 +356,18 @@ int _loadProgram(const char * code, const char * id)
     _closeProgram(id);
   }
 
-     //passing a null pointer tells it to use the input buffer
-    if(code == 0)
-    {
-      if(ud)
-      {
-        if(ud->inputBuffer)
-        {
-         code = ud->inputBuffer;
-        }
-        else
-        {
-          code = "";
-        }
+  //passing a null pointer tells it to use the input buffer
+  if(code == 0) {
+    if(ud) {
+      if(ud->inputBuffer) {
+        code = ud->inputBuffer;
+      } else {
+        code = "";
       }
-      else
-      {
-          code="";
-      }
+    } else {
+      code="";
     }
-
-
+  }
 
   //This is a request to open the root interpreter
   if (id == 0)
@@ -449,10 +384,8 @@ int _loadProgram(const char * code, const char * id)
   }
 
   //Find a free interpreter slot
-  for (char i = 0; i < 16; i++)
-  {
-    if (loadedPrograms[i] == 0)
-    {
+  for (char i = 0; i < 16; i++) {
+    if (loadedPrograms[i] == 0) {
       mb_interpreter_t * n = 0;
       mb_open_child(&n, &bas_parent);
       mb_load_string(n, code, true);
@@ -474,11 +407,8 @@ int _loadProgram(const char * code, const char * id)
   return 1;
 }
 
-
-
 //If a program with that ID exists, replace the code
-int _MyBasic::appendInput(const char * data, int len,const char * id)
-{
+int _MyBasic::appendInput(const char * data, int len,const char * id) {
   MB_LOCK;
   dbg("got lock");
   mb_interpreter_t ** old = _programForId(id);
@@ -488,21 +418,16 @@ int _MyBasic::appendInput(const char * data, int len,const char * id)
     //The main reason for the input buffers is so we can transfer code by ID.
 
     //But it's also just a handy STDIN like feature.
-    if (old==0)
-    {
+    if (old==0) {
       //Load an empty program with that ID
       _loadProgram("", id);
     }
 
-
     mb_get_userdata(*old, (void **)&ud);
     //Check if the versions are the same
-    if(ud->inputBuffer)
-    {
+    if(ud->inputBuffer) {
       ud->inputBuffer=(char *)realloc(ud->inputBuffer, ud->inputBufferLen+len+1);
-    }
-    else
-    {
+    } else {
       ud->inputBuffer = (char *)malloc(len+1);
     }
     memcpy(ud->inputBuffer, data, len);
@@ -510,48 +435,35 @@ int _MyBasic::appendInput(const char * data, int len,const char * id)
   MB_UNLOCK;
 }
 
-
-
 //If a program with that ID exists, replace the code
-int _MyBasic::updateProgram(const char * code, const char * id)
-{
+int _MyBasic::updateProgram(const char * code, const char * id) {
   MB_LOCK;
   dbg("got lock");
   mb_interpreter_t ** old = _programForId(id);
   struct loadedProgram * ud = 0;
   //Check if programs are the same
 
-  if (old)
-  {
+  if (old) {
     mb_get_userdata(*old, (void **)&ud);
     //Check if the versions are the same
-    if (memcmp(ud->hash, code, 30) == 0)
-    {
+    if (memcmp(ud->hash, code, 30) == 0) {
       dbg("Doing nothing, hash same");
       MB_UNLOCK;
       return 0;
     }
 
     //passing a null pointer tells it to use the input buffer
-    if(code == 0)
-    {
-      if(ud)
-      {
-        if(ud->inputBuffer)
-        {
-         code = ud->inputBuffer;
-        }
-        else
-        {
+    if(code == 0) {
+      if(ud) {
+        if(ud->inputBuffer) {
+          code = ud->inputBuffer;
+        } else {
           code = "";
         }
-      }
-      else
-      {
-          code="";
+      } else {
+        code="";
       }
     }
-
 
    dbg("wait free");
     //Wait up to ten seconds, then tell the interpreter to stop whatever its doing.
@@ -559,47 +471,30 @@ int _MyBasic::updateProgram(const char * code, const char * id)
 
     mb_reset_preserve(old, 0);
     mb_load_string(*old, code, true);
-  }
-  else
-  {
+  } else  {
     _loadProgram(code, id);
   }
   MB_UNLOCK;
 }
 
 //Allow someone else to use the my-basic GIL, and don't return until we have the lock again.
-void _MyBasic::yield()
-{
+void _MyBasic::yield() {
   MB_UNLOCK;
   MB_LOCK;
 }
 
-
-
-
-
-
-
-int _MyBasic::loadProgram(const char * code, const char * id)
-{
-
+int _MyBasic::loadProgram(const char * code, const char * id) {
   MB_LOCK;
   int ret = _loadProgram(code, id);
   MB_UNLOCK;
   return ret;
 }
 
-
-
-
-void _MyBasic::runLoaded(const char * id)
-{
+void _MyBasic::runLoaded(const char * id) {
    makeRequest(*_programForId(id),(mb_value_t *)*_programForId(id));
 }
 
-
-void mbRunInProgram(char * source, const char * id)
-{
+void mbRunInProgram(char * source, const char * id) {
   MB_LOCK;
   struct mb_interpreter_t** program = _programForId(id);
   mb_load_string(*program, source, true);
@@ -607,8 +502,8 @@ void mbRunInProgram(char * source, const char * id)
   mb_reset_preserve(program, 0);
   MB_UNLOCK;
 }
-void mb_subshell(char * source, char * id)
-{
+
+void mb_subshell(char * source, char * id) {
   MB_LOCK;
 
   struct mb_interpreter_t** parent = _programForId(id);
@@ -616,11 +511,9 @@ void mb_subshell(char * source, char * id)
 
   mb_open_child(&child, parent);
 
-
   //mb_set_printer(bas, xprintf);
   mb_load_string(child, source, true);
   mb_run(child, true);
-
 
   mb_close(&child);
   MB_UNLOCK;

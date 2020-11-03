@@ -50,7 +50,3 @@ class _MyBasic
 };
 
 extern _MyBasic MyBasic;
-void enableArduinoBindings(struct mb_interpreter_t* bas);
-void enableLVGLprint(struct mb_interpreter_t* bas, lv_obj_t *l);
-void enableLVGL(struct mb_interpreter_t* bas, lv_obj_t *p, lv_style_t s);
-void enableFileModule(struct mb_interpreter_t* bas);

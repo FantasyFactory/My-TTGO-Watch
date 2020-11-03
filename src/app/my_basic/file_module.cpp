@@ -3,10 +3,8 @@ extern "C"
 #include "my_basic.h"
 }
 
-#include "Arduino.h"
+#include <TTGO.h>
 #include <stdio.h>
-
-
 
 static int _file_open(struct mb_interpreter_t* s, void** l) {
 	int result = MB_FUNC_OK;
@@ -15,25 +13,19 @@ static int _file_open(struct mb_interpreter_t* s, void** l) {
 	char* fm = 0;
 
 	mb_assert(s && l);
-
 	mb_check(mb_attempt_open_bracket(s, l));
-
 	mb_check(mb_pop_string(s, l, &fn));
-
 	mb_check(mb_pop_string(s, l, &fm));
-
 	mb_check(mb_attempt_close_bracket(s, l));
 
 	if(!fn) {
 		result = MB_FUNC_ERR;
-
 		goto _exit;
 	}
 
 	fp = fopen(fn, fm);
 	if(!fp) {
 		result = MB_FUNC_ERR;
-
 		goto _exit;
 	}
 
@@ -49,11 +41,8 @@ static int _file_close(struct mb_interpreter_t* s, void** l) {
 	void* up = 0;
 
 	mb_assert(s && l);
-
 	mb_check(mb_attempt_open_bracket(s, l));
-
 	mb_check(mb_pop_usertype(s, l, &up));
-
 	mb_check(mb_attempt_close_bracket(s, l));
 
 	if(!up)
@@ -72,16 +61,12 @@ static int _file_peek(struct mb_interpreter_t* s, void** l) {
 	long ft = -1; /* Push -1 for error */
 
 	mb_assert(s && l);
-
 	mb_check(mb_attempt_open_bracket(s, l));
-
 	mb_check(mb_pop_usertype(s, l, &up));
-
 	mb_check(mb_attempt_close_bracket(s, l));
 
 	if(!up) {
 		result = MB_FUNC_ERR;
-
 		goto _exit;
 	}
 
@@ -101,13 +86,9 @@ static int _file_poke(struct mb_interpreter_t* s, void** l) {
 	int_fast64_t fo = 0;
 
 	mb_assert(s && l);
-
 	mb_check(mb_attempt_open_bracket(s, l));
-
 	mb_check(mb_pop_usertype(s, l, &up));
-
 	mb_check(mb_pop_int(s, l, &fo));
-
 	mb_check(mb_attempt_close_bracket(s, l));
 
 	if(!up)
@@ -126,9 +107,7 @@ static int _file_read(struct mb_interpreter_t* s, void** l) {
 	int64_t ln = 0;
 
 	mb_assert(s && l);
-
 	mb_check(mb_attempt_open_bracket(s, l));
-
 	mb_check(mb_pop_usertype(s, l, &up));
 
 	if(mb_has_arg(s, l)) {
@@ -139,7 +118,6 @@ static int _file_read(struct mb_interpreter_t* s, void** l) {
 
 	if(!up) {
 		result = MB_FUNC_ERR;
-
 		goto _exit;
 	}
 
@@ -156,6 +134,7 @@ static int _file_read(struct mb_interpreter_t* s, void** l) {
 	}
 
 _exit:
+
 	return result;
 }
 
@@ -165,16 +144,12 @@ static int _file_read_line(struct mb_interpreter_t* s, void** l) {
 	void* up = 0;
 
 	mb_assert(s && l);
-
 	mb_check(mb_attempt_open_bracket(s, l));
-
 	mb_check(mb_pop_usertype(s, l, &up));
-
 	mb_check(mb_attempt_close_bracket(s, l));
 
 	if(!up) {
 		result = MB_FUNC_ERR;
-
 		goto _exit;
 	}
 
@@ -189,7 +164,6 @@ static int _file_read_line(struct mb_interpreter_t* s, void** l) {
 				long l = ftell(fp);
 				if(fgetc(fp) != '\r')
 					fseek(fp, l, SEEK_SET);
-
 				break;
 			}
 		}
@@ -214,14 +188,11 @@ static int _file_write(struct mb_interpreter_t* s, void** l) {
 	mb_value_t val;
 
 	mb_assert(s && l);
-
 	mb_check(mb_attempt_open_bracket(s, l));
-
 	mb_check(mb_pop_usertype(s, l, &up));
 
 	if(!up) {
 		result = MB_FUNC_ERR;
-
 		goto _exit;
 	}
 
@@ -262,14 +233,11 @@ static int _file_write_line(struct mb_interpreter_t* s, void** l) {
 	mb_value_t val;
 
 	mb_assert(s && l);
-
 	mb_check(mb_attempt_open_bracket(s, l));
-
 	mb_check(mb_pop_usertype(s, l, &up));
 
 	if(!up) {
 		result = MB_FUNC_ERR;
-
 		goto _exit;
 	}
 
@@ -305,7 +273,6 @@ _exit:
 
 	return result;
 }
-
 
 void enableFileModule(struct mb_interpreter_t* bas)
 {
