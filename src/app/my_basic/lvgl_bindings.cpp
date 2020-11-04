@@ -2,18 +2,24 @@ extern "C"
 {
 #include "my_basic.h"
 }
-
+#define LILYGO_WATCH_2020_V1
+#ifdef LILYGO_WATCH_2020_V1
 #include <TTGO.h>
 #include "hardware/display.h"
+#else
+#include <assert.h>
+#endif
+#include "my_basic.h"
 #include "lvgl/lvgl.h"
+#include "lvgl_bindings.h"
 
-static lv_obj_t *my_basic_output_label;
-static lv_obj_t *my_basic_output_page;
-lv_style_t *my_basic_page_main_style;
+static lv_obj_t* my_basic_output_label;
+static lv_obj_t* my_basic_output_page;
+lv_style_t* my_basic_page_main_style;
 LV_FONT_DECLARE(Ubuntu_16px);
 
-static int lvglprint(const char *format, ...) {
-    char *buf = (char *)malloc(128); // Massimo 128 bytes per linea ? Nessun controllo qui !
+static int lvglprint(const char* format, ...) {
+    char* buf = (char*)malloc(128); // Massimo 128 bytes per linea ? Nessun controllo qui !
     int result = 0;
     va_list ap;
     va_start(ap, format);
@@ -224,13 +230,13 @@ static int _get_main_lv_obj(struct mb_interpreter_t* s, void** l) {
 }
 
 
-void enableLVGLprint(struct mb_interpreter_t* bas, lv_obj_t *l) {
-  my_basic_output_label=l;
-  mb_set_printer(bas, lvglprint);
-  mb_register_func(bas, "CLS", lvglclear);
+void enableLVGLprint(struct mb_interpreter_t* bas, lv_obj_t* l) {
+    my_basic_output_label = l;
+    mb_set_printer(bas, lvglprint);
+    mb_register_func(bas, "CLS", lvglclear);
 }
 
-void enableLVGL(struct mb_interpreter_t* bas, lv_obj_t *p, lv_style_t *s) {
+void enableLVGL(struct mb_interpreter_t* bas, lv_obj_t* p, lv_style_t* s) {
     my_basic_output_page = p;
     my_basic_page_main_style = s;
     //mb_begin_module(s, "LVGL");
