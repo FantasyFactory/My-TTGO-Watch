@@ -28,8 +28,8 @@
 
 #endif // _EXAMPLE_APP_MAIN_H
 
-#define IR_Sony
-//#define IR_Samsung
+//#define IR_Sony
+#define IR_Samsung
 
 #ifdef IR_Samsung
 
