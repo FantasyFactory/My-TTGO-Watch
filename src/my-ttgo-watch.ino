@@ -54,6 +54,7 @@
 #include "app/image_ticker/image_ticker.h"
 #include "app/prayer_app/prayer_app.h"
 
+
 TTGOClass *ttgo = TTGOClass::getWatch();
 
 void setup()
@@ -138,6 +139,8 @@ void setup()
 
     disableCore0WDT();
     callback_print();
+    //display_event_logging_enable(true);
+
 }
 
 void loop() {

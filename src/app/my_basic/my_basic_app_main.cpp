@@ -30,14 +30,14 @@
 #include "gui/mainbar/mainbar.h"
 #include "gui/statusbar.h"
 
-
 #include "bas_arduino.h"
+#include "file_module.h"
+#include "hw_bindings.h"
+#include "lvgl_bindings.h"
+#include "various_module.h"
 
 lv_obj_t *my_basic_app_main_tile = NULL;
 lv_style_t my_basic_app_main_style;
-lv_style_t my_basic_page_main_style;
-lv_style_t my_basic_text_main_style;
-
 lv_task_t * _my_basic_app_task;
 
 LV_IMG_DECLARE(exit_32px);
@@ -50,9 +50,14 @@ static void enter_my_basic_app_setup_event_cb( lv_obj_t * obj, lv_event_t event 
 static void refresh_output_event_cb( lv_obj_t * obj, lv_event_t event );
 void my_basic_app_task( lv_task_t * task );
 
-static lv_obj_t *output;
+ //#define UseOutputLabel 
 
-void DoBasic( void );
+static lv_obj_t *my_basic_cont;
+static lv_style_t my_basic_cont_main_style;
+#ifdef UseOutputLabel
+static lv_obj_t *my_basic_output_label;
+static lv_style_t my_basic_output_style;
+#endif 
 
 void my_basic_app_main_setup( uint32_t tile_num ) {
 
@@ -78,24 +83,25 @@ void my_basic_app_main_setup( uint32_t tile_num ) {
     lv_obj_set_event_cb( setup_btn, enter_my_basic_app_setup_event_cb );
 
 
-        /*Create a page*/
-    lv_obj_t * page = lv_page_create(my_basic_app_main_tile, NULL);
-    lv_style_copy( &my_basic_page_main_style, &my_basic_app_main_style );
-    lv_style_set_bg_opa( &my_basic_page_main_style, LV_OBJ_PART_MAIN, LV_OPA_50);
-    lv_obj_set_size(page, 240, 192);
-    lv_obj_align(page, NULL, LV_ALIGN_IN_TOP_MID, 0, 0);
+    /************ my_basic_cont main container (for lvgl integration) *********/
+    lv_obj_t *my_basic_cont = lv_obj_create( my_basic_app_main_tile, NULL );
+    lv_obj_set_size( my_basic_cont, lv_disp_get_hor_res( NULL ) , 200);
+    lv_style_copy( &my_basic_cont_main_style, mainbar_get_style() );
+    lv_style_set_bg_color( &my_basic_cont_main_style, LV_OBJ_PART_MAIN, LV_COLOR_BLUE);
+    lv_obj_add_style( my_basic_cont, LV_OBJ_PART_MAIN, &my_basic_cont_main_style  );
+    lv_obj_align( my_basic_cont, my_basic_app_main_tile, LV_ALIGN_IN_TOP_MID, 0, 10 );
 
-
-
-    /*Create a label on the page*/
-    lv_style_copy( &my_basic_text_main_style, &my_basic_page_main_style );
-    lv_style_set_text_font( &my_basic_text_main_style, LV_STATE_DEFAULT, &Ubuntu_16px);
-    lv_style_set_text_color(&my_basic_text_main_style, LV_STATE_DEFAULT, LV_COLOR_BLUE);
-    output = lv_label_create(page, NULL);
-    lv_obj_add_style( output, LV_OBJ_PART_MAIN, &my_basic_text_main_style );
-    //lv_label_set_long_mode(output, LV_LABEL_LONG_SROLL);            /*Automatically scroll long lines*/
-    lv_obj_set_width(output, lv_page_get_width_fit(page));          /*Set the label width to max value to not show hor. scroll bars*/
-    lv_label_set_text(output, "");
+    /************ my_basic_output_label label for  "PRINT" redirection *********/
+#ifdef UseOutputLabel    
+    lv_style_copy( &my_basic_output_style, &my_basic_cont_main_style );
+    lv_style_set_text_font( &my_basic_output_style, LV_STATE_DEFAULT, &Ubuntu_16px);
+    lv_style_set_text_color(&my_basic_output_style, LV_STATE_DEFAULT, LV_COLOR_BLUE);
+    my_basic_output_label = lv_label_create(my_basic_cont, NULL);
+    lv_obj_add_style( my_basic_output_label, LV_OBJ_PART_MAIN, &my_basic_output_style );
+    //lv_label_set_long_mode(my_basic_output_label, LV_LABEL_LONG_SROLL);            /*Automatically scroll long lines*/
+    lv_obj_set_width(my_basic_output_label, lv_page_get_width_fit(my_basic_cont));          /*Set the label width to max value to not show hor. scroll bars*/
+    lv_label_set_text(my_basic_output_label, "");
+#endif
 
 
     lv_obj_t * reload_btn = lv_imgbtn_create( my_basic_app_main_tile, NULL);
@@ -103,7 +109,7 @@ void my_basic_app_main_setup( uint32_t tile_num ) {
     lv_imgbtn_set_src(reload_btn, LV_BTN_STATE_PRESSED, &refresh_32px);
     lv_imgbtn_set_src(reload_btn, LV_BTN_STATE_CHECKED_RELEASED, &refresh_32px);
     lv_imgbtn_set_src(reload_btn, LV_BTN_STATE_CHECKED_PRESSED, &refresh_32px);
-    lv_obj_add_style(reload_btn, LV_IMGBTN_PART_MAIN, &my_basic_page_main_style );
+    lv_obj_add_style(reload_btn, LV_IMGBTN_PART_MAIN, &my_basic_app_main_style );
     lv_obj_align(reload_btn, my_basic_app_main_tile, LV_ALIGN_IN_BOTTOM_MID, 0 , -10 );
     lv_obj_set_event_cb( reload_btn, refresh_output_event_cb );
 
@@ -142,35 +148,95 @@ void my_basic_app_task( lv_task_t * task ) {
     // put your code her
 }
 
-void DoBasic() {
+
+static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code) {
+  mb_unrefvar(s);
+  mb_unrefvar(p);
+
+  if (e != SE_NO_ERR) {
+    if (f) {
+      if (e == SE_RN_WRONG_FUNCTION_REACHED) {
+        log_e(
+          "Error:\n    Ln %d, Col %d in Func: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
+          row, col, f,
+          e, abort_code,
+          m
+        );
+      } else {
+        log_e(
+          "Error:\n    Ln %d, Col %d in File: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
+          row, col, f,
+          e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
+          m
+        );
+      }
+    } else {
+      log_e(
+        "Error:\n    Ln %d, Col %d\n    Code %d, Abort Code %d\n    Message: %s.\n",
+        row, col,
+        e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
+        m
+      );
+    }
+  }
+}
+
+bool DoBasic( void ) {
     struct mb_interpreter_t* bas = NULL;
+    #define dbg(x) Serial.println(x)
+    //#define dbg 
 
-    const char *program =
-            "PRINT \"Hello world !\"\n"
-            "FOR i=1 to 3\n"
-            "  PRINT i\n"
-            "NEXT i\n"
-            "PRINT \"Yes I'm working\"\n";
+    FILE * pFile;
+    long lSize;
+    char * buffer;
+    size_t result;
 
-    Serial.printf("Free heap: %d\r\n", ESP.getFreeHeap());
-    Serial.printf("Free PSRAM: %d\r\n", ESP.getFreePsram());
-    
-    Serial.printf("My Basic RUN\n");
+    pFile = fopen ( "/spiffs/myfile.bas" , "r" );
+    if (pFile==NULL) {Serial.printf ("File error"); return false;}
 
-    lv_label_set_text(output, "My Basic RUN\n");
+    // obtain file size:
+    fseek (pFile , 0 , SEEK_END);
+    lSize = ftell (pFile);
+    rewind (pFile);
+
+    // allocate memory to contain the whole file:
+    buffer = (char*) malloc (sizeof(char)*lSize+1);
+    if (buffer == NULL) {Serial.printf ("Memory error"); return false;}
+
+    // copy the file into the buffer:
+    result = fread (buffer,1,lSize,pFile);
+    buffer[lSize]=0;
+    if (result != lSize) {Serial.printf ("Reading error"); return false;}
+
+    // terminate
+    fclose (pFile);
+
+    log_i("Free heap: %d\r\n", ESP.getFreeHeap());
+    log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
+    log_i("My Basic RUN\n");
+
 	mb_init();
 	mb_open(&bas);
+    mb_set_error_handler(bas, _on_error);
     enableArduinoBindings(bas);
-    enableLVGLprint(bas, output);
-	mb_load_string(bas, program, true);
+#ifdef UseOutputLabel
+    enableLVGLprint(bas, my_basic_output_label);
+#else
+    enableSerialPrint(bas);
+#endif
+    enableLVGL(bas, my_basic_cont, &my_basic_cont_main_style);
+    enableFileModule(bas);
+    enableVariousModule(bas);
+	mb_load_string(bas, buffer, true);
 	mb_run(bas, true);
 	mb_close(&bas);
 	mb_dispose();
-    lv_label_ins_text(output, LV_LABEL_POS_LAST, "My Basic END\n");
 
-    Serial.printf("My Basic END\r\n");
+    log_i("My Basic END\r\n");
 
-    Serial.printf("Free heap: %d\r\n", ESP.getFreeHeap());
-    Serial.printf("Free PSRAM: %d\r\n", ESP.getFreePsram());
+    log_i("Free heap: %d\r\n", ESP.getFreeHeap());
+    log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
+    free (buffer);
 
 }
+

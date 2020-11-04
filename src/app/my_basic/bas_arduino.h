@@ -50,5 +50,3 @@ class _MyBasic
 };
 
 extern _MyBasic MyBasic;
-void enableArduinoBindings(struct mb_interpreter_t* bas);
-void enableLVGLprint(struct mb_interpreter_t* bas, lv_obj_t *label);
