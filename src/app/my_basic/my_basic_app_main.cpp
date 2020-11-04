@@ -58,6 +58,7 @@ static lv_style_t my_basic_cont_main_style;
 static lv_obj_t *my_basic_output_label;
 static lv_style_t my_basic_output_style;
 #endif 
+struct mb_interpreter_t* bas = NULL;
 
 void my_basic_app_main_setup( uint32_t tile_num ) {
 
@@ -132,7 +133,8 @@ static void enter_my_basic_app_setup_event_cb( lv_obj_t * obj, lv_event_t event 
 
 static void exit_my_basic_app_main_event_cb( lv_obj_t * obj, lv_event_t event ) {
     switch( event ) {
-        case( LV_EVENT_CLICKED ):       mainbar_jump_to_maintile( LV_ANIM_OFF );
+        case( LV_EVENT_CLICKED ):       CloseBasic();
+                                        mainbar_jump_to_maintile( LV_ANIM_OFF );
                                         break;
     }
 }
@@ -182,7 +184,7 @@ static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, c
 }
 
 bool DoBasic( void ) {
-    struct mb_interpreter_t* bas = NULL;
+
     #define dbg(x) Serial.println(x)
     //#define dbg 
 
@@ -229,8 +231,7 @@ bool DoBasic( void ) {
     enableVariousModule(bas);
 	mb_load_string(bas, buffer, true);
 	mb_run(bas, true);
-	mb_close(&bas);
-	mb_dispose();
+
 
     log_i("My Basic END\r\n");
 
@@ -240,3 +241,7 @@ bool DoBasic( void ) {
 
 }
 
+void CloseBasic (void) {
+  mb_close(&bas);
+	mb_dispose();
+}

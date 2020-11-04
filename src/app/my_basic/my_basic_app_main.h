@@ -26,5 +26,6 @@
 
     void my_basic_app_main_setup( uint32_t tile_num );
     bool DoBasic( void );
+    void CloseBasic (void );
 
 #endif // _MY_BASIC_APP_MAIN_H

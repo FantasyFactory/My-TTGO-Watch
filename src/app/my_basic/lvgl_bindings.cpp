@@ -1,12 +1,10 @@
-extern "C"
-{
-#include "my_basic.h"
-}
 #define LILYGO_WATCH_2020_V1
 #ifdef LILYGO_WATCH_2020_V1
 #include <TTGO.h>
 #include "hardware/display.h"
 #else
+#include <stdlib.h>
+#include <stdio.h>
 #include <assert.h>
 #endif
 #include "my_basic.h"
@@ -14,8 +12,8 @@ extern "C"
 #include "lvgl_bindings.h"
 
 static lv_obj_t* my_basic_output_label;
-static lv_obj_t* my_basic_output_page;
-lv_style_t* my_basic_page_main_style;
+static lv_obj_t* my_basic_main_lv_obj;
+lv_style_t* my_basic_main_lv_style;
 LV_FONT_DECLARE(Ubuntu_16px);
 
 static int lvglprint(const char* format, ...) {
@@ -47,10 +45,7 @@ static void lv_obj_unref(struct mb_interpreter_t* s, void* d) {
 
     mb_assert(s);
 
-    if (p != my_basic_output_page) free(p);
-}
-
-static void dont_unref(struct mb_interpreter_t* s, void* d) {
+    if (p != my_basic_main_lv_obj) free(p);
 }
 
 static void* lv_obj_clone(struct mb_interpreter_t* s, void* d) {
@@ -58,8 +53,7 @@ static void* lv_obj_clone(struct mb_interpreter_t* s, void* d) {
     lv_obj_t* q = (lv_obj_t*)malloc(sizeof(lv_obj_t));
 
     mb_assert(s);
-
-    *q = *p;
+    if (q) memcpy(q, p, sizeof(lv_obj_t));
 
     return q;
 }
@@ -93,7 +87,7 @@ static int lv_obj_fmt(struct mb_interpreter_t* s, void* d, char* b, unsigned z) 
 
     mb_assert(s);
 
-    result = snprintf(b, z, "%x", (unsigned int)p) + 1;
+    result = snprintf(b, z, "%x", p) + 1;
 
     return result;
 }
@@ -106,7 +100,7 @@ static int _lv_btn_create(struct mb_interpreter_t* s, void** l) {
 
     {
         lv_obj_t* p;
-        int64_t x1, y1, x2, y2;
+        int_t x1, y1, x2, y2;
         mb_value_t arg;
         mb_make_nil(arg);
         mb_check(mb_pop_value(s, l, &arg));
@@ -117,16 +111,16 @@ static int _lv_btn_create(struct mb_interpreter_t* s, void** l) {
 
         mb_check(mb_get_ref_value(s, l, arg, (void**)&p));
 
-        lv_style_t new_lv_label_main_style;
-        lv_style_init(&new_lv_label_main_style);
-        lv_style_copy(&new_lv_label_main_style, my_basic_page_main_style);
-        lv_style_set_text_font(&new_lv_label_main_style, LV_STATE_DEFAULT, &Ubuntu_16px);
-        lv_style_set_text_color(&new_lv_label_main_style, LV_STATE_DEFAULT, LV_COLOR_BLUE);
-        lv_style_set_bg_color(&new_lv_label_main_style, LV_OBJ_PART_MAIN, LV_COLOR_YELLOW);
-        lv_task_handler();
+        //lv_style_t new_lv_label_main_style;
+        //lv_style_init(&new_lv_label_main_style);
+        //lv_style_copy(&new_lv_label_main_style, my_basic_main_lv_style);
+        //lv_style_set_text_font(&new_lv_label_main_style, LV_STATE_DEFAULT, &Ubuntu_16px);
+        //lv_style_set_text_color(&new_lv_label_main_style, LV_STATE_DEFAULT, LV_COLOR_BLUE);
+        //lv_style_set_bg_color(&new_lv_label_main_style, LV_OBJ_PART_MAIN, LV_COLOR_YELLOW);
+        //lv_task_handler();
         lv_obj_t* _p = lv_btn_create(p, NULL);
         lv_task_handler();
-        lv_obj_add_style(_p, LV_OBJ_PART_MAIN, &new_lv_label_main_style);
+        //lv_obj_add_style(_p, LV_OBJ_PART_MAIN, &new_lv_label_main_style);
         lv_obj_set_pos(_p, x1, y1);
         lv_obj_set_size(_p, x2, y2);
 
@@ -151,7 +145,7 @@ static int _lv_label_create(struct mb_interpreter_t* s, void** l) {
 
     {
         lv_obj_t* p;
-        int64_t  x1, y1, x2, y2;
+        int_t x1, y1, x2, y2;
         mb_value_t arg;
         mb_make_nil(arg);
         mb_check(mb_pop_value(s, l, &arg));
@@ -162,16 +156,16 @@ static int _lv_label_create(struct mb_interpreter_t* s, void** l) {
 
         mb_check(mb_get_ref_value(s, l, arg, (void**)&p));
 
-        lv_style_t new_lv_label_main_style;
-        lv_style_init(&new_lv_label_main_style);
-        lv_style_copy(&new_lv_label_main_style, my_basic_page_main_style);
-        lv_style_set_text_font(&new_lv_label_main_style, LV_STATE_DEFAULT, &Ubuntu_16px);
-        lv_style_set_text_color(&new_lv_label_main_style, LV_STATE_DEFAULT, LV_COLOR_BLUE);
-        lv_style_set_bg_color(&new_lv_label_main_style, LV_OBJ_PART_MAIN, LV_COLOR_YELLOW);
-        lv_task_handler();
+        // lv_style_t new_lv_label_main_style;
+        // lv_style_init(&new_lv_label_main_style);
+        // lv_style_copy(&new_lv_label_main_style, my_basic_main_lv_style);
+        // lv_style_set_text_font(&new_lv_label_main_style, LV_STATE_DEFAULT, &Ubuntu_16px);
+        // lv_style_set_text_color(&new_lv_label_main_style, LV_STATE_DEFAULT, LV_COLOR_BLUE);
+        // lv_style_set_bg_color(&new_lv_label_main_style, LV_OBJ_PART_MAIN, LV_COLOR_YELLOW);
+        // lv_task_handler();
         lv_obj_t* _p = lv_label_create(p, NULL);
         lv_task_handler();
-        lv_obj_add_style(_p, LV_OBJ_PART_MAIN, &new_lv_label_main_style);
+        //lv_obj_add_style(_p, LV_OBJ_PART_MAIN, &new_lv_label_main_style);
         lv_obj_set_pos(_p, x1, y1);
         lv_obj_set_size(_p, x2, y2);
 
@@ -220,9 +214,10 @@ static int _get_main_lv_obj(struct mb_interpreter_t* s, void** l) {
 
     {
         mb_value_t ret;
-        lv_obj_t* _p = (lv_obj_t*)malloc(sizeof(lv_obj_t));
-        memcpy(_p, my_basic_output_page, sizeof(lv_obj_t));
-        mb_make_ref_value(s, _p, &ret, dont_unref, lv_obj_clone, lv_obj_hash, lv_obj_cmp, lv_obj_fmt);
+        //lv_obj_t* _p = (lv_obj_t*)malloc(sizeof(lv_obj_t));
+        //if (_p) memcpy(_p, my_basic_main_lv_obj, sizeof(lv_obj_t)); else return MB_EXTENDED_ABORT;
+        //mb_make_ref_value(s, _p, &ret, lv_obj_unref, lv_obj_clone, lv_obj_hash, lv_obj_cmp, lv_obj_fmt);
+        mb_make_ref_value(s, my_basic_main_lv_obj, &ret, lv_obj_unref, lv_obj_clone, lv_obj_hash, lv_obj_cmp, lv_obj_fmt);
         mb_check(mb_push_value(s, l, ret));
     }
 
@@ -237,8 +232,8 @@ void enableLVGLprint(struct mb_interpreter_t* bas, lv_obj_t* l) {
 }
 
 void enableLVGL(struct mb_interpreter_t* bas, lv_obj_t* p, lv_style_t* s) {
-    my_basic_output_page = p;
-    my_basic_page_main_style = s;
+    my_basic_main_lv_obj = p;
+    my_basic_main_lv_style = s;
     //mb_begin_module(s, "LVGL");
     mb_register_func(bas, "GetMainLvObj", _get_main_lv_obj);
     mb_register_func(bas, "LvButtonCreate", _lv_btn_create);
