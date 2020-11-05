@@ -25,6 +25,7 @@
     #include <TTGO.h>
 
     void my_basic_app_main_setup( uint32_t tile_num );
+    bool InitBasic( void );
     bool DoBasic( void );
     void CloseBasic (void );
 

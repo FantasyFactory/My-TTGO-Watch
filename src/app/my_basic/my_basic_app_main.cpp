@@ -59,6 +59,10 @@ static lv_obj_t *my_basic_output_label;
 static lv_style_t my_basic_output_style;
 #endif 
 struct mb_interpreter_t* bas = NULL;
+char * buffer = NULL;
+#define MyBasicThreads 4
+const char *BasFileName = "/spiffs/myfile.bas";
+#define dbg(x) Serial.println(x)
 
 void my_basic_app_main_setup( uint32_t tile_num ) {
 
@@ -116,7 +120,7 @@ void my_basic_app_main_setup( uint32_t tile_num ) {
 
 
 
-
+    InitBasic();
 
 
     // create an task that runs every secound
@@ -151,49 +155,17 @@ void my_basic_app_task( lv_task_t * task ) {
 }
 
 
-static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code) {
-  mb_unrefvar(s);
-  mb_unrefvar(p);
 
-  if (e != SE_NO_ERR) {
-    if (f) {
-      if (e == SE_RN_WRONG_FUNCTION_REACHED) {
-        log_e(
-          "Error:\n    Ln %d, Col %d in Func: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
-          row, col, f,
-          e, abort_code,
-          m
-        );
-      } else {
-        log_e(
-          "Error:\n    Ln %d, Col %d in File: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
-          row, col, f,
-          e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
-          m
-        );
-      }
-    } else {
-      log_e(
-        "Error:\n    Ln %d, Col %d\n    Code %d, Abort Code %d\n    Message: %s.\n",
-        row, col,
-        e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
-        m
-      );
-    }
-  }
-}
 
-bool DoBasic( void ) {
+bool InitBasic ( void ) {
 
-    #define dbg(x) Serial.println(x)
-    //#define dbg 
 
     FILE * pFile;
     long lSize;
-    char * buffer;
-    size_t result;
 
-    pFile = fopen ( "/spiffs/myfile.bas" , "r" );
+    size_t result;
+log_i("Loading %s\r\n", BasFileName);
+    pFile = fopen ( BasFileName, "r" );
     if (pFile==NULL) {Serial.printf ("File error"); return false;}
 
     // obtain file size:
@@ -212,36 +184,47 @@ bool DoBasic( void ) {
 
     // terminate
     fclose (pFile);
+log_i("Loaded %d bytes of code\r\n", lSize);
 
     log_i("Free heap: %d\r\n", ESP.getFreeHeap());
     log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
     log_i("My Basic RUN\n");
 
+    MyBasic.begin(MyBasicThreads);
+    MyBasic.loadProgram(buffer, BasFileName);
+    MyBasic.setLv(BasFileName, my_basic_cont, my_basic_cont_main_style);
+
+#ifdef piripillo
 	mb_init();
 	mb_open(&bas);
-    mb_set_error_handler(bas, _on_error);
-    enableArduinoBindings(bas);
+  enableArduinoBindings(bas);
 #ifdef UseOutputLabel
     enableLVGLprint(bas, my_basic_output_label);
 #else
     enableSerialPrint(bas);
 #endif
-    enableLVGL(bas, my_basic_cont, &my_basic_cont_main_style);
-    enableFileModule(bas);
-    enableVariousModule(bas);
+  enableLVGL(bas, my_basic_cont, &my_basic_cont_main_style);
+  enableFileModule(bas);
+  enableVariousModule(bas);
 	mb_load_string(bas, buffer, true);
-	mb_run(bas, true);
+#endif
+  return true;
+}
 
-
-    log_i("My Basic END\r\n");
-
-    log_i("Free heap: %d\r\n", ESP.getFreeHeap());
-    log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
-    free (buffer);
+bool DoBasic( void ) {
+  MyBasic.runLoaded(BasFileName);  
+	//mb_run(bas, true);
 
 }
 
 void CloseBasic (void) {
-  mb_close(&bas);
-	mb_dispose();
+  MyBasic.closeProgram(BasFileName);
+  //mb_close(&bas);
+	//mb_dispose();
+  
+  log_i("My Basic END\r\n");
+
+  log_i("Free heap: %d\r\n", ESP.getFreeHeap());
+  log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
+  free (buffer);
 }

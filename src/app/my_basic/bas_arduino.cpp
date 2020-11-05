@@ -22,6 +22,9 @@
 #include "Arduino.h"
 #include "bas_arduino.h"
 #include "hw_bindings.h"
+#include "file_module.h"
+#include "lvgl_bindings.h"
+#include "various_module.h"
 
 #define dbg(x) Serial.println(x)
 
@@ -73,6 +76,9 @@ struct loadedProgram {
   //When a child interpreter runs, it increments all parents and itself.
   //In this way it is kind of like a reference count.
   char busy; 
+
+  lv_obj_t *my_basic_cont;
+  lv_style_t my_basic_cont_main_style;
 };
 
 //Given a string program ID, return the mb interpreter for it, or 0,
@@ -100,7 +106,6 @@ static mb_interpreter_t** _programForId(const char * id) {
   }
   return 0;
 }
-
 
 ///This must be called under lock. We can't manage that because we don't
 ///Know what you plan to do with it.
@@ -134,8 +139,6 @@ static char _mbisbusy(mb_interpreter_t * i) {
   return 0; 
 }
 
-
-
 //Mark a program as busy by incrementing the reference count
 static void _mbsetbusy(mb_interpreter_t * i) {
   struct loadedProgram * ud;
@@ -158,7 +161,6 @@ static void _mbsetfree(mb_interpreter_t * i) {
   } 
 }
 
-
 //Represents a request to do something with
 struct BasRequest {
   //Pointer tp the target of the request
@@ -169,14 +171,12 @@ struct BasRequest {
   void * arg;
 };
 
-
 static void makeRequest(mb_interpreter_t * interpreter, mb_value_t * object) {
   struct BasRequest br;
   br.interpreter = interpreter;
   br.object = object;
   xQueueSend(request_queue, &br, portMAX_DELAY);
 }
-
 
 //Close a program by ID
 static void _closeProgram(const char * id) {
@@ -203,6 +203,21 @@ static void _closeProgram(const char * id) {
   mb_close(old);
 }
 
+static void _setLv(const char * id, lv_obj_t *my_basic_cont, lv_style_t my_basic_cont_main_style ) {
+  mb_interpreter_t ** bas = _programForId(id);
+
+  struct loadedProgram * ud;
+  if (*bas == 0) {
+    return;
+  }
+
+  mb_get_userdata(*bas, (void **)&ud);
+
+  enableLVGL(*bas, my_basic_cont, &my_basic_cont_main_style);
+  ud->my_basic_cont = my_basic_cont;
+  ud->my_basic_cont_main_style = my_basic_cont_main_style;
+  mb_set_userdata(*bas, ud);
+}
 
 static void BasicInterpreterTask(void *) {
   struct BasRequest br;
@@ -268,6 +283,10 @@ void _MyBasic::begin(char numThreads) {
   const char * code =  "'The only line in this root program currently is this comment";
   mb_open(&bas_parent);
   enableArduinoBindings(bas_parent);
+  enableSerialPrint(bas_parent);
+  enableFileModule(bas_parent);
+  enableVariousModule(bas_parent);
+
   mb_remove_func(bas_parent,"DELAY");
   mb_register_func(bas_parent, "DELAY", bas_delay_rtos);
   mb_load_string(bas_parent,code, true);
@@ -309,7 +328,6 @@ static void basyield(mb_interpreter_t *) {
   vTaskDelay(2);
   MB_LOCK;
 }
-
 
 //Polls the interpreter until it's free. waiting sleepfor in between.
 //Should force_close be true, it will wait a maximum of retries before
@@ -374,6 +392,11 @@ int _loadProgram(const char * code, const char * id) {
   {
     mb_open(&bas_parent);
     enableArduinoBindings(bas_parent);
+    enableSerialPrint(bas_parent);
+    enableFileModule(bas_parent);
+    enableVariousModule(bas_parent);
+
+    mb_set_error_handler(bas_parent, _on_error);
     mb_load_string(bas_parent, code, true);
 
     struct loadedProgram * loadedprg = (struct loadedProgram *)malloc(sizeof(struct loadedProgram));
@@ -494,6 +517,14 @@ void _MyBasic::runLoaded(const char * id) {
    makeRequest(*_programForId(id),(mb_value_t *)*_programForId(id));
 }
 
+void _MyBasic::setLv( const char *id, lv_obj_t *my_basic_cont, lv_style_t my_basic_cont_main_style ) {
+  _setLv(id, my_basic_cont, my_basic_cont_main_style );
+}
+
+void _MyBasic::closeProgram(const char * id) {
+  _closeProgram(id);
+}
+
 void mbRunInProgram(char * source, const char * id) {
   MB_LOCK;
   struct mb_interpreter_t** program = _programForId(id);
@@ -519,4 +550,35 @@ void mb_subshell(char * source, char * id) {
   MB_UNLOCK;
 }
 
+static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code) {
+  mb_unrefvar(s);
+  mb_unrefvar(p);
+
+  if (e != SE_NO_ERR) {
+    if (f) {
+      if (e == SE_RN_WRONG_FUNCTION_REACHED) {
+        log_e(
+          "Error:\n    Ln %d, Col %d in Func: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
+          row, col, f,
+          e, abort_code,
+          m
+        );
+      } else {
+        log_e(
+          "Error:\n    Ln %d, Col %d in File: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
+          row, col, f,
+          e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
+          m
+        );
+      }
+    } else {
+      log_e(
+        "Error:\n    Ln %d, Col %d\n    Code %d, Abort Code %d\n    Message: %s.\n",
+        row, col,
+        e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
+        m
+      );
+    }
+  }
+}
 
