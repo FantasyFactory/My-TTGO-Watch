@@ -89,13 +89,13 @@ void my_basic_app_main_setup( uint32_t tile_num ) {
 
 
     /************ my_basic_cont main container (for lvgl integration) *********/
-    lv_obj_t *my_basic_cont = lv_obj_create( my_basic_app_main_tile, NULL );
+ /*   lv_obj_t *my_basic_cont = lv_obj_create( my_basic_app_main_tile, NULL );
     lv_obj_set_size( my_basic_cont, lv_disp_get_hor_res( NULL ) , 200);
     lv_style_copy( &my_basic_cont_main_style, mainbar_get_style() );
     lv_style_set_bg_color( &my_basic_cont_main_style, LV_OBJ_PART_MAIN, LV_COLOR_BLUE);
     lv_obj_add_style( my_basic_cont, LV_OBJ_PART_MAIN, &my_basic_cont_main_style  );
     lv_obj_align( my_basic_cont, my_basic_app_main_tile, LV_ALIGN_IN_TOP_MID, 0, 10 );
-
+*/
     /************ my_basic_output_label label for  "PRINT" redirection *********/
 #ifdef UseOutputLabel    
     lv_style_copy( &my_basic_output_style, &my_basic_cont_main_style );
@@ -192,7 +192,8 @@ log_i("Loaded %d bytes of code\r\n", lSize);
 
     MyBasic.begin(MyBasicThreads);
     MyBasic.loadProgram(buffer, BasFileName);
-    MyBasic.setLv(BasFileName, my_basic_cont, my_basic_cont_main_style);
+    //MyBasic.setLv(BasFileName, my_basic_cont, my_basic_cont_main_style);
+    MyBasic.setLv(BasFileName, my_basic_app_main_tile, my_basic_app_main_style);
 
 #ifdef piripillo
 	mb_init();

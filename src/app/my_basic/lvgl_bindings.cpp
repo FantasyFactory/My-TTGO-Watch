@@ -87,7 +87,7 @@ static int lv_obj_fmt(struct mb_interpreter_t* s, void* d, char* b, unsigned z) 
 
     mb_assert(s);
 
-    result = snprintf(b, z, "%x", p) + 1;
+    result = snprintf(b, z, "%x", (int_t)p) + 1;
 
     return result;
 }
@@ -191,6 +191,7 @@ static int _lv_label_set_text(struct mb_interpreter_t* s, void** l) {
         char* str = 0;
         mb_value_t arg;
         mb_make_nil(arg);
+
         mb_check(mb_pop_value(s, l, &arg));
         mb_check(mb_get_ref_value(s, l, arg, (void**)&p));
         mb_check(mb_pop_string(s, l, &str));
