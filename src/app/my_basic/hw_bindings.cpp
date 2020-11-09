@@ -199,7 +199,10 @@ int bas_delay(struct mb_interpreter_t* s, void** l) {
   mb_check(mb_attempt_open_bracket(s, l));
   mb_check(mb_pop_int(s, l, &n));
   mb_check(mb_attempt_close_bracket(s, l));
-  delay(n);
+
+  vTaskDelay(n/portTICK_PERIOD_MS);
+  //delay(n);
+
   return result;
 }
 

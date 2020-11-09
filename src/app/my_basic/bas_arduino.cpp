@@ -78,7 +78,7 @@ struct loadedProgram {
   char busy; 
 
   lv_obj_t *my_basic_cont;
-  lv_style_t my_basic_cont_main_style;
+  lv_style_t *my_basic_cont_main_style;
 };
 
 //Given a string program ID, return the mb interpreter for it, or 0,
@@ -203,7 +203,7 @@ static void _closeProgram(const char * id) {
   mb_close(old);
 }
 
-static void _setLv(const char * id, lv_obj_t *my_basic_cont, lv_style_t my_basic_cont_main_style ) {
+static void _setLv(const char * id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
   mb_interpreter_t ** bas = _programForId(id);
 
   struct loadedProgram * ud;
@@ -213,7 +213,7 @@ static void _setLv(const char * id, lv_obj_t *my_basic_cont, lv_style_t my_basic
 
   mb_get_userdata(*bas, (void **)&ud);
 
-  enableLVGL(*bas, my_basic_cont, &my_basic_cont_main_style);
+  enableLVGL(*bas, my_basic_cont, my_basic_cont_main_style);
   ud->my_basic_cont = my_basic_cont;
   ud->my_basic_cont_main_style = my_basic_cont_main_style;
   mb_set_userdata(*bas, ud);
@@ -517,7 +517,7 @@ void _MyBasic::runLoaded(const char * id) {
    makeRequest(*_programForId(id),(mb_value_t *)*_programForId(id));
 }
 
-void _MyBasic::setLv( const char *id, lv_obj_t *my_basic_cont, lv_style_t my_basic_cont_main_style ) {
+void _MyBasic::setLv( const char *id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
   _setLv(id, my_basic_cont, my_basic_cont_main_style );
 }
 

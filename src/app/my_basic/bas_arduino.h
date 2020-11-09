@@ -37,7 +37,7 @@ class _MyBasic
     void runLoaded(const char *);
     int loadProgram(const char *, const char *);
     int appendInput(const char * data, int len, const char * id);
-    void setLv(const char *id, lv_obj_t *, lv_style_t );
+    void setLv( const char *id, lv_obj_t *, lv_style_t *);
     void closeProgram(const char *);
 
     mb_interpreter_t * rootInterpreter;

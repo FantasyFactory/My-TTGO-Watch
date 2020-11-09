@@ -190,38 +190,45 @@ log_i("Loaded %d bytes of code\r\n", lSize);
     log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
     log_i("My Basic RUN\n");
 
+#ifdef piripillo
     MyBasic.begin(MyBasicThreads);
     MyBasic.loadProgram(buffer, BasFileName);
-    //MyBasic.setLv(BasFileName, my_basic_cont, my_basic_cont_main_style);
-    MyBasic.setLv(BasFileName, my_basic_app_main_tile, my_basic_app_main_style);
+    MyBasic.setLv(BasFileName, my_basic_app_main_tile, &my_basic_app_main_style);
 
-#ifdef piripillo
+#else
 	mb_init();
 	mb_open(&bas);
-  enableArduinoBindings(bas);
+    enableArduinoBindings(bas);
 #ifdef UseOutputLabel
     enableLVGLprint(bas, my_basic_output_label);
 #else
     enableSerialPrint(bas);
 #endif
-  enableLVGL(bas, my_basic_cont, &my_basic_cont_main_style);
+  enableLVGL(bas, my_basic_app_main_tile, &my_basic_app_main_style);
   enableFileModule(bas);
   enableVariousModule(bas);
-	mb_load_string(bas, buffer, true);
+  mb_load_string(bas, buffer, true);
 #endif
+
   return true;
 }
 
 bool DoBasic( void ) {
+#ifdef piripillo
   MyBasic.runLoaded(BasFileName);  
-	//mb_run(bas, true);
+#else
+	mb_run(bas, true);
+#endif
 
 }
 
 void CloseBasic (void) {
+#ifdef piripillo
   MyBasic.closeProgram(BasFileName);
-  //mb_close(&bas);
-	//mb_dispose();
+#else
+  mb_close(&bas);
+  mb_dispose();
+#endif
   
   log_i("My Basic END\r\n");
 
