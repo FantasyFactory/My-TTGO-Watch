@@ -57,7 +57,7 @@ static void lv_obj_unref(struct mb_interpreter_t* s, void* d) {
     mb_assert(s);
 
     if (p != my_basic_main_lv_obj) {
-        log_i("Destroy lv_obj_t * 0x%llx", (long long)p);
+        //log_i("{Destroy lv_obj_t * 0x%llx}\n", (long long)p);
         free(p);
     }
 }
@@ -148,7 +148,7 @@ static int _lv_btn_create(struct mb_interpreter_t* s, void** l) {
         mb_check(mb_unref_value(s, l, arg));
 #endif
 
-        log_i("lv_btn_create(0x%llx)=0x%llx", (long long)p, (long long)_p);
+        log_i("{lv_btn_create(0x%llx)=0x%llx}\n", (long long)p, (long long)_p);
     }
 
     mb_check(mb_attempt_close_bracket(s, l));
@@ -199,7 +199,7 @@ static int _lv_label_create(struct mb_interpreter_t* s, void** l) {
         mb_check(mb_unref_value(s, l, arg));
 #endif
 
-        log_i("lv_label_create(0x%llx)=0x%llx", (long long)p, (long long)_p);
+        log_i("{lv_label_create(0x%llx)=0x%llx}\n", (long long)p, (long long)_p);
     }
 
     mb_check(mb_attempt_close_bracket(s, l));
@@ -235,6 +235,7 @@ static int _lv_label_set_text(struct mb_interpreter_t* s, void** l) {
 #ifndef SimpleUsertype
         mb_check(mb_unref_value(s, l, arg));
 #endif 
+        //log_i("{_lv_label_set_text(0x%llx)=%s}\n", (long long)p, str);
     }
 
     mb_check(mb_attempt_close_bracket(s, l));
@@ -259,7 +260,7 @@ static int _get_main_lv_obj(struct mb_interpreter_t* s, void** l) {
         mb_make_ref_value(s, my_basic_main_lv_obj, &ret, lv_obj_unref, lv_obj_clone, lv_obj_hash, lv_obj_cmp, lv_obj_fmt);
 #endif 
         mb_check(mb_push_value(s, l, ret));
-        log_i("Main LvObj * 0x%llx", (long long)my_basic_main_lv_obj);
+        log_i("{Main LvObj * 0x%llx}\n", (long long)my_basic_main_lv_obj);
     }
 
     mb_check(mb_attempt_close_bracket(s, l));
@@ -273,35 +274,46 @@ static void _LvEventHandler(lv_obj_t* obj, lv_event_t event) {
 
     switch (event) {
         case(LV_EVENT_CLICKED):
-            {        
-                for (int i = 0; i < LvEvtHandlersCount; i++) {
-                    if (LvEventHandlers[i].obj == obj) {
-                        log_i("Handle event %d for object 0x%llx at 0x%llx", event, (long long)LvEventHandlers[i].obj, (long long)LvEventHandlers[i].routine.value.usertype);
-                        mb_value_t args[2];
-                        mb_make_nil(args[0]);
+        {
+            for (int i = 0; i < LvEvtHandlersCount; i++) {
+                if (LvEventHandlers[i].obj == obj) {
+                    log_i("{Handle event %d for object 0x%llx at 0x%llx}\n", event, (long long)LvEventHandlers[i].obj, (long long)LvEventHandlers[i].routine.value.usertype);
+    #ifdef objasparameter
+                    mb_value_t args[2];
+                    mb_make_nil(args[0]);
 
-#ifdef SimpleUsertype
-                        args[0].type = MB_DT_USERTYPE;
-                        args[0].value.usertype = LvEventHandlers[i].obj;
-#else
-                        lv_obj_t* _p = (lv_obj_t *)lv_obj_clone(LvEventHandlers[i].s, LvEventHandlers[i].obj);
-                        mb_make_ref_value(LvEventHandlers[i].s, _p, &args[0], lv_obj_unref, lv_obj_clone, lv_obj_hash, lv_obj_cmp, lv_obj_fmt);
-#endif
-                        mb_make_nil(args[1]);
-                        args[1].type = MB_DT_INT;
-                        args[1].value.integer = event;
+    #ifdef SimpleUsertype
+                    args[0].type = MB_DT_USERTYPE;
+                    args[0].value.usertype = LvEventHandlers[i].obj;
+    #else
+                    lv_obj_t* _p = (lv_obj_t*)lv_obj_clone(LvEventHandlers[i].s, LvEventHandlers[i].obj);
+                    mb_make_ref_value(LvEventHandlers[i].s, _p, &args[0], lv_obj_unref, lv_obj_clone, lv_obj_hash, lv_obj_cmp, lv_obj_fmt);
+    #endif
+                    mb_make_nil(args[1]);
+                    args[1].type = MB_DT_INT;
+                    args[1].value.integer = event;
 
-                        mb_value_t ret;
-                        mb_make_nil(ret);
-                        mb_eval_routine(LvEventHandlers[i].s, LvEventHandlers[i].l, LvEventHandlers[i].routine, args, 2, &ret); /* Evaluate the "FUN" routine with arguments, and get the returned value */
-                        printf("Returned %d.\n", ret.value.integer);
-                    }
+                    mb_value_t ret;
+                    mb_make_nil(ret);
+                    mb_eval_routine(LvEventHandlers[i].s, LvEventHandlers[i].l, LvEventHandlers[i].routine, args, 2, &ret);
+                    printf("Returned %d.\n", ret.value.integer);
+    #else
+                    mb_value_t args[1];
+                    mb_make_nil(args[0]);
+
+                    args[0].type = MB_DT_INT;
+                    args[0].value.integer = event;
+
+                    mb_value_t ret;
+                    mb_make_nil(ret);
+                    mb_eval_routine(LvEventHandlers[i].s, LvEventHandlers[i].l, LvEventHandlers[i].routine, args, 1, &ret);
+    #endif
                 }
-
-                break;
             }
-    }
 
+            break;
+        }
+    }
 }
 
 static int _SetLvEventHandler(struct mb_interpreter_t* s, void** l) {
@@ -341,7 +353,7 @@ static int _SetLvEventHandler(struct mb_interpreter_t* s, void** l) {
         LvEventHandlers[LvEvtHandlersCount].l = l;
         lv_obj_set_event_cb(p, _LvEventHandler);
 
-        log_i("Set handler %d for object x%llx as %s\n", LvEvtHandlersCount, (long long)p, str);
+        log_i("{Set handler %d for object x%llx as %s}\n", LvEvtHandlersCount, (long long)p, str);
         LvEvtHandlersCount++;
 
     }
