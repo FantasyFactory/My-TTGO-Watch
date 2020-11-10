@@ -374,6 +374,7 @@ void enableLVGL(struct mb_interpreter_t* bas, lv_obj_t* p, lv_style_t* s) {
     my_basic_main_lv_obj = p;
     my_basic_main_lv_style = s;
     //mb_begin_module(s, "LVGL");
+    log_i("{EnableLVGL(x%llx, %s}\n", p, s);
     mb_register_func(bas, "GetMainLvObj", _get_main_lv_obj);
     mb_register_func(bas, "LvButtonCreate", _lv_btn_create);
     mb_register_func(bas, "LvLabelCreate", _lv_label_create);

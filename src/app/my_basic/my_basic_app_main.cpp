@@ -89,13 +89,13 @@ void my_basic_app_main_setup( uint32_t tile_num ) {
 
 
     /************ my_basic_cont main container (for lvgl integration) *********/
- /*   lv_obj_t *my_basic_cont = lv_obj_create( my_basic_app_main_tile, NULL );
+    lv_obj_t *my_basic_cont = lv_obj_create( my_basic_app_main_tile, NULL );
     lv_obj_set_size( my_basic_cont, lv_disp_get_hor_res( NULL ) , 200);
     lv_style_copy( &my_basic_cont_main_style, mainbar_get_style() );
     lv_style_set_bg_color( &my_basic_cont_main_style, LV_OBJ_PART_MAIN, LV_COLOR_BLUE);
     lv_obj_add_style( my_basic_cont, LV_OBJ_PART_MAIN, &my_basic_cont_main_style  );
     lv_obj_align( my_basic_cont, my_basic_app_main_tile, LV_ALIGN_IN_TOP_MID, 0, 10 );
-*/
+
     /************ my_basic_output_label label for  "PRINT" redirection *********/
 #ifdef UseOutputLabel    
     lv_style_copy( &my_basic_output_style, &my_basic_cont_main_style );
@@ -117,10 +117,6 @@ void my_basic_app_main_setup( uint32_t tile_num ) {
     lv_obj_add_style(reload_btn, LV_IMGBTN_PART_MAIN, &my_basic_app_main_style );
     lv_obj_align(reload_btn, my_basic_app_main_tile, LV_ALIGN_IN_BOTTOM_MID, 0 , -10 );
     lv_obj_set_event_cb( reload_btn, refresh_output_event_cb );
-
-
-
-    InitBasic();
 
 
     // create an task that runs every secound
@@ -185,45 +181,48 @@ log_i("Loading %s\r\n", BasFileName);
     // terminate
     fclose (pFile);
 log_i("Loaded %d bytes of code\r\n", lSize);
+log_i("-------------Source----------\n%s-----------End------\n", buffer);
 
     log_i("Free heap: %d\r\n", ESP.getFreeHeap());
     log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
     log_i("My Basic RUN\n");
 
-#ifdef piripillo
+#ifndef NoBasObj    
     MyBasic.begin(MyBasicThreads);
-    MyBasic.loadProgram(buffer, BasFileName);
-    MyBasic.setLv(BasFileName, my_basic_app_main_tile, &my_basic_app_main_style);
+    log_i("{ MyBasic.loadProgram(%s, %s, 0x%llx, 0x%llx) }\n", buffer, BasFileName, my_basic_cont, my_basic_cont_main_style );
+    MyBasic.loadProgram(buffer, BasFileName, my_basic_cont, &my_basic_cont_main_style);
+    //MyBasic.setLv(BasFileName, my_basic_app_main_tile, &my_basic_app_main_style);
 
 #else
 	mb_init();
 	mb_open(&bas);
     enableArduinoBindings(bas);
-#ifdef UseOutputLabel
-    enableLVGLprint(bas, my_basic_output_label);
-#else
-    enableSerialPrint(bas);
-#endif
-  enableLVGL(bas, my_basic_app_main_tile, &my_basic_app_main_style);
-  enableFileModule(bas);
-  enableVariousModule(bas);
-  mb_load_string(bas, buffer, true);
+    #ifdef UseOutputLabel
+        enableLVGLprint(bas, my_basic_output_label);
+    #else
+        enableSerialPrint(bas);
+    #endif
+    enableLVGL(bas, my_basic_app_main_tile, &my_basic_app_main_style);
+    enableFileModule(bas);
+    enableVariousModule(bas);
+    mb_set_error_handler(bas, _on_error);
+    mb_load_string(bas, buffer, true);
 #endif
 
   return true;
 }
 
 bool DoBasic( void ) {
-#ifdef piripillo
-  MyBasic.runLoaded(BasFileName);  
+    InitBasic();
+#ifndef NoBasObj
+    MyBasic.runLoaded(BasFileName);  
 #else
-	mb_run(bas, true);
+    mb_run(bas, true);
 #endif
-
 }
 
 void CloseBasic (void) {
-#ifdef piripillo
+#ifndef NoBasObj
   MyBasic.closeProgram(BasFileName);
 #else
   mb_close(&bas);
@@ -236,3 +235,40 @@ void CloseBasic (void) {
   log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
   free (buffer);
 }
+
+#ifdef NoBasObj
+static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code);
+static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code) {
+    mb_unrefvar(s);
+    mb_unrefvar(p);
+
+    if (e != SE_NO_ERR) {
+        if (f) {
+            if (e == SE_RN_WRONG_FUNCTION_REACHED) {
+                log_e(
+                    "Error:\n    Ln %d, Col %d in Func: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
+                    row, col, f,
+                    e, abort_code,
+                    m
+                );
+            }
+            else {
+                log_e(
+                    "Error:\n    Ln %d, Col %d in File: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
+                    row, col, f,
+                    e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
+                    m
+                );
+            }
+        }
+        else {
+            log_e(
+                "Error:\n    Ln %d, Col %d\n    Code %d, Abort Code %d\n    Message: %s.\n",
+                row, col,
+                e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
+                m
+            );
+        }
+    }
+}
+#endif

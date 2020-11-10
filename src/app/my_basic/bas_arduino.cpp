@@ -96,10 +96,10 @@ static mb_interpreter_t** _programForId(const char * id) {
     if (loadedPrograms[i]) {
       mb_get_userdata(loadedPrograms[i], (void**)&ud);
       if (strcmp(ud->programID, id) == 0) { 
-        dbg("request for");
-        dbg(id);
-        dbg("Got interpreter for");
-        dbg(ud->programID);
+        // dbg("request for");
+        // dbg(id);
+        // dbg("Got interpreter for");
+        // dbg(ud->programID);
         return &loadedPrograms[i];
       }
     }
@@ -208,6 +208,7 @@ static void _setLv(const char * id, lv_obj_t *my_basic_cont, lv_style_t *my_basi
 
   struct loadedProgram * ud;
   if (*bas == 0) {
+    log_i("{ _setLv(%s, 0x%llx, 0x%llx) }\n", id, my_basic_cont, my_basic_cont_main_style );
     return;
   }
 
@@ -280,7 +281,7 @@ void _MyBasic::begin(char numThreads) {
 
 
   //Start the root interpreter
-  const char * code =  "'The only line in this root program currently is this comment";
+  const char * code =  "'The only line in this root program currently is this comment\n";
   mb_open(&bas_parent);
   enableArduinoBindings(bas_parent);
   enableSerialPrint(bas_parent);
@@ -289,6 +290,8 @@ void _MyBasic::begin(char numThreads) {
 
   mb_remove_func(bas_parent,"DELAY");
   mb_register_func(bas_parent, "DELAY", bas_delay_rtos);
+
+  mb_set_error_handler(bas_parent, _on_error); // CC
   mb_load_string(bas_parent,code, true);
 
   struct loadedProgram * loadedprg = (struct loadedProgram *)malloc(sizeof(struct loadedProgram));
@@ -352,7 +355,7 @@ void mb_wait_directly_free(mb_interpreter_t *s,int sleepfor, char force_close, i
 
 //Load a new program with the given ID, replacing any with the same ID if the
 //first 30 bytes are different.
-int _loadProgram(const char * code, const char * id) {
+int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
   mb_interpreter_t ** old = _programForId(id);
   struct loadedProgram * ud = 0;
   //Check if programs are the same
@@ -395,6 +398,11 @@ int _loadProgram(const char * code, const char * id) {
     enableSerialPrint(bas_parent);
     enableFileModule(bas_parent);
     enableVariousModule(bas_parent);
+
+    enableLVGL(bas_parent, my_basic_cont, my_basic_cont_main_style);
+
+    mb_remove_func(bas_parent,"DELAY"); // CC
+    mb_register_func(bas_parent, "DELAY", bas_delay_rtos); // CC
 
     mb_set_error_handler(bas_parent, _on_error);
     mb_load_string(bas_parent, code, true);
@@ -443,7 +451,7 @@ int _MyBasic::appendInput(const char * data, int len,const char * id) {
     //But it's also just a handy STDIN like feature.
     if (old==0) {
       //Load an empty program with that ID
-      _loadProgram("", id);
+      _loadProgram("", id, ud->my_basic_cont, ud->my_basic_cont_main_style);
     }
 
     mb_get_userdata(*old, (void **)&ud);
@@ -495,7 +503,7 @@ int _MyBasic::updateProgram(const char * code, const char * id) {
     mb_reset_preserve(old, 0);
     mb_load_string(*old, code, true);
   } else  {
-    _loadProgram(code, id);
+    _loadProgram(code, id, ud->my_basic_cont, ud->my_basic_cont_main_style);
   }
   MB_UNLOCK;
 }
@@ -506,9 +514,9 @@ void _MyBasic::yield() {
   MB_LOCK;
 }
 
-int _MyBasic::loadProgram(const char * code, const char * id) {
+int _MyBasic::loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
   MB_LOCK;
-  int ret = _loadProgram(code, id);
+  int ret = _loadProgram(code, id, my_basic_cont, my_basic_cont_main_style);
   MB_UNLOCK;
   return ret;
 }
@@ -517,9 +525,9 @@ void _MyBasic::runLoaded(const char * id) {
    makeRequest(*_programForId(id),(mb_value_t *)*_programForId(id));
 }
 
-void _MyBasic::setLv( const char *id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
-  _setLv(id, my_basic_cont, my_basic_cont_main_style );
-}
+// void _MyBasic::setLv( const char *id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
+//   _setLv(id, my_basic_cont, my_basic_cont_main_style );
+// }
 
 void _MyBasic::closeProgram(const char * id) {
   _closeProgram(id);
