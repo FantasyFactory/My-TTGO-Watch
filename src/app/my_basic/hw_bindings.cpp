@@ -27,6 +27,7 @@ extern "C"
 
 #include <TTGO.h>
 #include "hardware/pmu.h"
+#include "hardware/motor.h"
 
 
 static void _unref(struct mb_interpreter_t* s, void* d) {
@@ -380,6 +381,20 @@ int bas_getbattpct(struct mb_interpreter_t* s, void** l) {
   return result;
 }
 
+int bas_motor_vibe(struct mb_interpreter_t* s, void** l) {
+  int result = MB_FUNC_OK;
+  int64_t n = 0;
+
+  mb_assert(s && l);
+  mb_check(mb_attempt_open_bracket(s, l));
+  mb_check(mb_pop_int(s, l, &n));
+  mb_check(mb_attempt_close_bracket(s, l));
+
+  motor_vibe( 1 / 10 );
+
+  return result;
+}
+
 /************************ Enabler **************************/
 
 void enableArduinoBindings(struct mb_interpreter_t* bas)
@@ -402,6 +417,7 @@ void enableArduinoBindings(struct mb_interpreter_t* bas)
 
   /**** TTGO Watch specific ***/
   mb_register_func(bas, "GetBatteryPct", bas_getbattpct);
+  mb_register_func(bas, "Motor", bas_motor_vibe);
 
 }
 

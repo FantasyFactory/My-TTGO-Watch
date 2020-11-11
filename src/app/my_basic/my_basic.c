@@ -869,8 +869,6 @@ typedef struct mb_interpreter_t {
 	//This is because we save function ASTs in a separate place.
 	_ls_node_t* saved_ast;
 
-
-
 	/** Memory management */
 	_gc_t gc;
 	_ls_node_t* edge_destroy_objects;

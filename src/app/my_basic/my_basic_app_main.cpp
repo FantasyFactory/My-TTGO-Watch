@@ -155,12 +155,11 @@ void my_basic_app_task( lv_task_t * task ) {
 
 bool InitBasic ( void ) {
 
-
     FILE * pFile;
     long lSize;
 
     size_t result;
-log_i("Loading %s\r\n", BasFileName);
+    log_i("Loading %s\r\n", BasFileName);
     pFile = fopen ( BasFileName, "r" );
     if (pFile==NULL) {Serial.printf ("File error"); return false;}
 
@@ -180,8 +179,8 @@ log_i("Loading %s\r\n", BasFileName);
 
     // terminate
     fclose (pFile);
-log_i("Loaded %d bytes of code\r\n", lSize);
-log_i("-------------Source----------\n%s-----------End------\n", buffer);
+    log_i("Loaded %d bytes of code\r\n", lSize);
+    log_i("-------------Source----------\n%s-----------End------\n", buffer);
 
     log_i("Free heap: %d\r\n", ESP.getFreeHeap());
     log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
@@ -191,7 +190,6 @@ log_i("-------------Source----------\n%s-----------End------\n", buffer);
     MyBasic.begin(MyBasicThreads);
     log_i("{ MyBasic.loadProgram(%s, %s, 0x%llx, 0x%llx) }\n", buffer, BasFileName, my_basic_cont, my_basic_cont_main_style );
     MyBasic.loadProgram(buffer, BasFileName, my_basic_cont, &my_basic_cont_main_style);
-    //MyBasic.setLv(BasFileName, my_basic_app_main_tile, &my_basic_app_main_style);
 
 #else
 	mb_init();

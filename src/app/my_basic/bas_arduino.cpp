@@ -420,6 +420,7 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
       mb_interpreter_t * n = 0;
       mb_open_child(&n, &bas_parent);
       mb_load_string(n, code, true);
+      enableLVGL(n, my_basic_cont, my_basic_cont_main_style);
       mb_set_yield(n, basyield);
 
       struct loadedProgram * loadedprg = (struct loadedProgram *) malloc(sizeof(struct loadedProgram));
@@ -427,6 +428,7 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
       strcpy(loadedprg->programID, id);
       loadedprg->programID[strlen(id)] = 0;
       loadedprg->busy = 0;
+      
 
       mb_set_userdata(n, loadedprg);
       loadedPrograms[i] = n;
