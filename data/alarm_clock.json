@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "beep": true,
+  "fade": true,
+  "vibe": true,
+  "show_on_main_tile_key": false
+}
