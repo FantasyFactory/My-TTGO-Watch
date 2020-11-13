@@ -2,11 +2,13 @@
 #ifdef LILYGO_WATCH_2020_V1
 #include <TTGO.h>
 #include "hardware/display.h"
+#define wait(millis) vTaskDelay(millis)
 #else
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 #define log_i printf
+#define wait(millis) SDL_Delay(millis)
 #endif
 #include "my_basic.h"
 #include "lvgl/lvgl.h"
@@ -16,7 +18,9 @@ static lv_obj_t* my_basic_output_label;
 static lv_obj_t* my_basic_main_lv_obj;
 lv_style_t* my_basic_main_lv_style;
 LV_FONT_DECLARE(Ubuntu_16px);
+static char *lv_msgbox_opt = NULL;
 #define MaxLvEvtHandlers 32
+//#define LogDebug
 
 struct LvEventHandler {
     lv_obj_t* obj;
@@ -57,8 +61,10 @@ static void lv_obj_unref(struct mb_interpreter_t* s, void* d) {
     mb_assert(s);
 
     if (p != my_basic_main_lv_obj) {
-        //log_i("{Destroy lv_obj_t * 0x%llx}\n", (long long)p);
-        free(p);
+#ifdef LogDebug
+        log_i("{Destroy lv_obj_t * 0x%llx}\n", (long long)p);
+#endif
+        lv_obj_clean(p);
     }
 }
 
@@ -147,8 +153,9 @@ static int _lv_btn_create(struct mb_interpreter_t* s, void** l) {
         mb_check(mb_push_value(s, l, ret));
         mb_check(mb_unref_value(s, l, arg));
 #endif
-
+#ifdef LogDebug
         log_i("{lv_btn_create(0x%llx)=0x%llx}\n", (long long)p, (long long)_p);
+#endif
     }
 
     mb_check(mb_attempt_close_bracket(s, l));
@@ -198,8 +205,9 @@ static int _lv_label_create(struct mb_interpreter_t* s, void** l) {
         mb_check(mb_push_value(s, l, ret));
         mb_check(mb_unref_value(s, l, arg));
 #endif
-
+#ifdef LogDebug
         log_i("{lv_label_create(0x%llx)=0x%llx}\n", (long long)p, (long long)_p);
+#endif
     }
 
     mb_check(mb_attempt_close_bracket(s, l));
@@ -243,6 +251,65 @@ static int _lv_label_set_text(struct mb_interpreter_t* s, void** l) {
     return result;
 }
 
+static void _lv_msgbox_event_handler(lv_obj_t* obj, lv_event_t event)
+{
+    if (event == LV_EVENT_VALUE_CHANGED) {
+        lv_msgbox_opt = (char *)lv_msgbox_get_active_btn_text(obj);
+        //printf("Button: %s\n", lv_msgbox_opt);
+    }
+}
+
+
+static int _lv_msgbox(struct mb_interpreter_t* s, void** l) {
+    int result = MB_FUNC_OK;
+
+    mb_assert(s && l);
+    mb_check(mb_attempt_open_bracket(s, l));
+
+    {
+        char* text;
+        mb_check(mb_pop_string(s, l, &text));
+        char* str[4];
+        mb_check(mb_pop_string(s, l, &str[0]));
+        mb_check(mb_pop_string(s, l, &str[1]));
+        mb_check(mb_pop_string(s, l, &str[2]));
+        mb_check(mb_pop_string(s, l, &str[3]));
+
+        lv_obj_t* mbox1 = lv_msgbox_create(lv_scr_act(), NULL);
+        lv_msgbox_set_text(mbox1, text);
+        lv_msgbox_add_btns(mbox1, (const char **)str);
+        //lv_obj_set_width(mbox1, 200);
+        lv_obj_set_event_cb(mbox1, _lv_msgbox_event_handler);
+        lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); /*Align to the corner*/
+
+        lv_msgbox_opt = NULL;
+        while (lv_msgbox_opt == NULL) {
+            lv_task_handler();
+            wait(20);       /*Just to let the system breathe */
+        }
+
+        if (lv_msgbox_opt) {            
+            mb_check(mb_push_string(s, l, lv_msgbox_opt));
+#ifdef LogDebug
+            log_i("{_lv_msgbox()=%s}\n", lv_msgbox_opt);
+#endif
+        }
+        else {
+            mb_check(mb_push_string(s, l, ""));
+#ifdef LogDebug
+            log_i("{_lv_msgbox()=???}\n");
+#endif
+        }
+        
+        lv_obj_del(mbox1);
+
+    }
+
+    mb_check(mb_attempt_close_bracket(s, l));
+    lv_task_handler();
+    return result;
+}
+
 
 static int _get_main_lv_obj(struct mb_interpreter_t* s, void** l) {
     int result = MB_FUNC_OK;
@@ -260,7 +327,9 @@ static int _get_main_lv_obj(struct mb_interpreter_t* s, void** l) {
         mb_make_ref_value(s, my_basic_main_lv_obj, &ret, lv_obj_unref, lv_obj_clone, lv_obj_hash, lv_obj_cmp, lv_obj_fmt);
 #endif 
         mb_check(mb_push_value(s, l, ret));
+#ifdef LogDebug
         log_i("{Main LvObj * 0x%llx}\n", (long long)my_basic_main_lv_obj);
+#endif
     }
 
     mb_check(mb_attempt_close_bracket(s, l));
@@ -277,7 +346,9 @@ static void _LvEventHandler(lv_obj_t* obj, lv_event_t event) {
         {
             for (int i = 0; i < LvEvtHandlersCount; i++) {
                 if (LvEventHandlers[i].obj == obj) {
+#ifdef LogDebug
                     log_i("{Handle event %d for object 0x%llx at 0x%llx}\n", event, (long long)LvEventHandlers[i].obj, (long long)LvEventHandlers[i].routine.value.usertype);
+#endif
     #ifdef objasparameter
                     mb_value_t args[2];
                     mb_make_nil(args[0]);
@@ -353,7 +424,9 @@ static int _SetLvEventHandler(struct mb_interpreter_t* s, void** l) {
         LvEventHandlers[LvEvtHandlersCount].l = l;
         lv_obj_set_event_cb(p, _LvEventHandler);
 
+#ifdef LogDebug
         log_i("{Set handler %d for object x%llx as %s}\n", LvEvtHandlersCount, (long long)p, str);
+#endif
         LvEvtHandlersCount++;
 
     }
@@ -374,11 +447,11 @@ void enableLVGL(struct mb_interpreter_t* bas, lv_obj_t* p, lv_style_t* s) {
     my_basic_main_lv_obj = p;
     my_basic_main_lv_style = s;
     //mb_begin_module(s, "LVGL");
-    log_i("{EnableLVGL(x%llx, %s}\n", p, s);
     mb_register_func(bas, "GetMainLvObj", _get_main_lv_obj);
     mb_register_func(bas, "LvButtonCreate", _lv_btn_create);
     mb_register_func(bas, "LvLabelCreate", _lv_label_create);
     mb_register_func(bas, "LvLabelSetText", _lv_label_set_text);
     mb_register_func(bas, "SetLvEventHandler", _SetLvEventHandler);
+    mb_register_func(bas, "LvMsgbox", _lv_msgbox);
     //mb_end_module(s);
 }

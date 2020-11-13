@@ -360,6 +360,8 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
   struct loadedProgram * ud = 0;
   //Check if programs are the same
 
+  log_i("_programForId(%s)=%d\n",id,old);
+
   if (old) {
     mb_get_userdata(*old, (void **)&ud);
     //Check if the versions are the same
@@ -411,6 +413,7 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
     memcpy(loadedprg->hash, code, 30);
     loadedprg->busy = 0;
     mb_set_userdata(bas_parent, loadedprg);
+    log_i("LoadProgram found root\n");
     return 0;
   }
 
@@ -420,7 +423,19 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
       mb_interpreter_t * n = 0;
       mb_open_child(&n, &bas_parent);
       mb_load_string(n, code, true);
+
+      enableArduinoBindings(n);
+      enableSerialPrint(n);
+      enableFileModule(n);
+      enableVariousModule(n);
+
       enableLVGL(n, my_basic_cont, my_basic_cont_main_style);
+
+      mb_remove_func(n,"DELAY"); // CC
+      mb_register_func(n, "DELAY", bas_delay_rtos); // CC
+
+      mb_set_error_handler(n, _on_error);
+
       mb_set_yield(n, basyield);
 
       struct loadedProgram * loadedprg = (struct loadedProgram *) malloc(sizeof(struct loadedProgram));
@@ -432,10 +447,12 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
 
       mb_set_userdata(n, loadedprg);
       loadedPrograms[i] = n;
+      log_i("LoadProgram found slot %d\n",i);
       return 0;
     }
   }
 
+  log_i("LoadProgram return 1\n");
   //err, could not find free slot for program
   return 1;
 }

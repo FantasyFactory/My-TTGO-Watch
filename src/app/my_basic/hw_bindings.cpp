@@ -28,6 +28,7 @@ extern "C"
 #include <TTGO.h>
 #include "hardware/pmu.h"
 #include "hardware/motor.h"
+#include "lvgl/lvgl.h"
 
 
 static void _unref(struct mb_interpreter_t* s, void* d) {
@@ -201,8 +202,15 @@ int bas_delay(struct mb_interpreter_t* s, void** l) {
   mb_check(mb_pop_int(s, l, &n));
   mb_check(mb_attempt_close_bracket(s, l));
 
-  vTaskDelay(n/portTICK_PERIOD_MS);
-  //delay(n);
+  
+  log_i("Delay for %d millis, tick %d , ticks %d \n", n, 10, n/10);
+  for (n=200; n>0; n--) {
+    lv_task_handler();
+    //vTaskDelay(10);
+    delay(10);
+  }
+  //vTaskDelay(n/portTICK_PERIOD_MS);
+  //
 
   return result;
 }

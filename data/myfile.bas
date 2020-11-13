@@ -4,11 +4,11 @@ GlobalVal = 100
 print "Hello basic!", CrLf
 x = GetMainLvObj()
 print "Get main lv obj ", x, CrLf
-b1 = LvButtonCreate(x, 32, 64, 160, 48)
+b1 = LvButtonCreate(x, 32, 32, 160, 48)
 print "button 1 ", b1, CrLf
-b2 = LvButtonCreate(x, 32, 128, 160, 48)
+b2 = LvButtonCreate(x, 32, 96, 160, 48)
 print "button 2 ", b2, CrLf
-lx = LvLabelCreate(x, 32, 192, 128, 32)
+lx = LvLabelCreate(x, 32, 160, 128, 32)
 print "Create a label into main lv obj", lx, CrLf
 lb1 = LvLabelCreate(b1, 8, 8, 128, 32)
 print "Create a label into button 1", lb1, crlf

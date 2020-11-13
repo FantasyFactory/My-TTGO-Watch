@@ -88,13 +88,7 @@ void my_basic_app_main_setup( uint32_t tile_num ) {
     lv_obj_set_event_cb( setup_btn, enter_my_basic_app_setup_event_cb );
 
 
-    /************ my_basic_cont main container (for lvgl integration) *********/
-    lv_obj_t *my_basic_cont = lv_obj_create( my_basic_app_main_tile, NULL );
-    lv_obj_set_size( my_basic_cont, lv_disp_get_hor_res( NULL ) , 200);
-    lv_style_copy( &my_basic_cont_main_style, mainbar_get_style() );
-    lv_style_set_bg_color( &my_basic_cont_main_style, LV_OBJ_PART_MAIN, LV_COLOR_BLUE);
-    lv_obj_add_style( my_basic_cont, LV_OBJ_PART_MAIN, &my_basic_cont_main_style  );
-    lv_obj_align( my_basic_cont, my_basic_app_main_tile, LV_ALIGN_IN_TOP_MID, 0, 10 );
+
 
     /************ my_basic_output_label label for  "PRINT" redirection *********/
 #ifdef UseOutputLabel    
@@ -147,7 +141,7 @@ static void refresh_output_event_cb( lv_obj_t * obj, lv_event_t event ) {
 }
 
 void my_basic_app_task( lv_task_t * task ) {
-    // put your code her
+    // put your code here
 }
 
 
@@ -180,31 +174,44 @@ bool InitBasic ( void ) {
     // terminate
     fclose (pFile);
     log_i("Loaded %d bytes of code\r\n", lSize);
-    log_i("-------------Source----------\n%s-----------End------\n", buffer);
+    //log_i("-------------Source----------\n%s-----------End------\n", buffer);
 
     log_i("Free heap: %d\r\n", ESP.getFreeHeap());
     log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
     log_i("My Basic RUN\n");
 
+    /************ my_basic_cont main container (for lvgl integration) *********/
+    my_basic_cont = lv_obj_create(my_basic_app_main_tile, NULL);
+    lv_obj_set_size(my_basic_cont, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL) - 64);
+    lv_style_init(&my_basic_cont_main_style); 
+    lv_style_copy(&my_basic_cont_main_style, &my_basic_app_main_style);
+    lv_style_set_bg_color(&my_basic_cont_main_style, LV_OBJ_PART_MAIN, LV_COLOR_BLUE);
+    lv_obj_add_style(my_basic_cont, LV_OBJ_PART_MAIN, &my_basic_cont_main_style);
+    lv_obj_align(my_basic_cont, my_basic_app_main_tile, LV_ALIGN_IN_TOP_MID, 0, 32);
+
+#define NoBasObj
 #ifndef NoBasObj    
     MyBasic.begin(MyBasicThreads);
-    log_i("{ MyBasic.loadProgram(%s, %s, 0x%llx, 0x%llx) }\n", buffer, BasFileName, my_basic_cont, my_basic_cont_main_style );
+    log_i("{ MyBasic.loadProgram(%s, %s, 0x%lx, 0x%lx) }\n", buffer, BasFileName, my_basic_cont, my_basic_cont_main_style );
     MyBasic.loadProgram(buffer, BasFileName, my_basic_cont, &my_basic_cont_main_style);
 
 #else
 	mb_init();
 	mb_open(&bas);
-    enableArduinoBindings(bas);
-    #ifdef UseOutputLabel
-        enableLVGLprint(bas, my_basic_output_label);
-    #else
-        enableSerialPrint(bas);
-    #endif
-    enableLVGL(bas, my_basic_app_main_tile, &my_basic_app_main_style);
-    enableFileModule(bas);
-    enableVariousModule(bas);
-    mb_set_error_handler(bas, _on_error);
-    mb_load_string(bas, buffer, true);
+  enableArduinoBindings(bas);
+  #ifdef UseOutputLabel
+      enableLVGLprint(bas, my_basic_output_label);
+  #else
+      enableSerialPrint(bas);
+  #endif
+  log_i("il puntatore all'oggetto lv è 0x%lx \n", my_basic_cont);
+  enableLVGL(bas, my_basic_cont, &my_basic_cont_main_style);
+  enableFileModule(bas);
+  enableVariousModule(bas);
+  //mb_remove_func(bas,"DELAY");
+  //mb_register_func(bas, "DELAY", bas_delay_rtos);
+  mb_set_error_handler(bas, _on_error);
+  mb_load_string(bas, buffer, true);
 #endif
 
   return true;
@@ -223,6 +230,8 @@ void CloseBasic (void) {
 #ifndef NoBasObj
   MyBasic.closeProgram(BasFileName);
 #else
+  lv_obj_clean(my_basic_cont);
+  lv_obj_del(my_basic_cont);
   mb_close(&bas);
   mb_dispose();
 #endif
