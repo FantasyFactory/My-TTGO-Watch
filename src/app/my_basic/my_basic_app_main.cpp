@@ -189,11 +189,13 @@ bool InitBasic ( void ) {
     lv_obj_add_style(my_basic_cont, LV_OBJ_PART_MAIN, &my_basic_cont_main_style);
     lv_obj_align(my_basic_cont, my_basic_app_main_tile, LV_ALIGN_IN_TOP_MID, 0, 32);
 
-#define NoBasObj
+//#define NoBasObj
 #ifndef NoBasObj    
     MyBasic.begin(MyBasicThreads);
-    log_i("{ MyBasic.loadProgram(%s, %s, 0x%lx, 0x%lx) }\n", buffer, BasFileName, my_basic_cont, my_basic_cont_main_style );
-    MyBasic.loadProgram(buffer, BasFileName, my_basic_cont, &my_basic_cont_main_style);
+    int ret;
+    
+    ret=MyBasic.loadProgram(buffer, BasFileName, my_basic_cont, &my_basic_cont_main_style);
+    log_i("{ MyBasic.loadProgram(\n%s\n, %s, 0x%lx, 0x%lx) } = %d\n", buffer, BasFileName, my_basic_cont, &my_basic_cont_main_style, ret );
 
 #else
 	mb_init();
@@ -220,6 +222,7 @@ bool InitBasic ( void ) {
 bool DoBasic( void ) {
     InitBasic();
 #ifndef NoBasObj
+    MyBasic.updateProgram(buffer, BasFileName);      
     MyBasic.runLoaded(BasFileName);  
 #else
     mb_run(bas, true);

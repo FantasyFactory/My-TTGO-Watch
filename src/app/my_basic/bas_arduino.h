@@ -38,7 +38,7 @@ class _MyBasic
     //int loadProgram(const char *, const char *);
     int loadProgram(const char * code, const char * id, lv_obj_t *, lv_style_t * );
     int appendInput(const char * data, int len, const char * id);
-    //void setLv( const char *id, lv_obj_t *, lv_style_t *);
+    void setLv( const char *id, lv_obj_t *, lv_style_t *);
     void closeProgram(const char *);
 
     mb_interpreter_t * rootInterpreter;
@@ -47,7 +47,7 @@ class _MyBasic
     void lock();
     void unlock();
 
-    int stackSize = 2048;
+    int stackSize = 8192;
 
 };
 static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code);

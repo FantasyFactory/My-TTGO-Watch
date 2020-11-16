@@ -208,11 +208,11 @@ static void _setLv(const char * id, lv_obj_t *my_basic_cont, lv_style_t *my_basi
 
   struct loadedProgram * ud;
   if (*bas == 0) {
-    log_i("{ _setLv(%s, 0x%llx, 0x%llx) }\n", id, my_basic_cont, my_basic_cont_main_style );
     return;
   }
 
   mb_get_userdata(*bas, (void **)&ud);
+  log_i("{ _setLv(%s, 0x%lx, 0x%lx) }\n", id, my_basic_cont, my_basic_cont_main_style );
 
   enableLVGL(*bas, my_basic_cont, my_basic_cont_main_style);
   ud->my_basic_cont = my_basic_cont;
@@ -223,6 +223,8 @@ static void _setLv(const char * id, lv_obj_t *my_basic_cont, lv_style_t *my_basi
 static void BasicInterpreterTask(void *) {
   struct BasRequest br;
   struct loadedProgram * ud;
+
+  log_i("ENTER BasicInterpreterTask !!!\n");
 
   while (1) {
     xQueueReceive(request_queue, &br, portMAX_DELAY);
@@ -247,7 +249,9 @@ static void BasicInterpreterTask(void *) {
     }
 
     _mbsetbusy(br.interpreter);
-    dbg("running");
+    log_i("running interpreter 0x%lx", br.interpreter);
+    mb_get_userdata(br.interpreter,(void**)&ud);
+    SetLvPtr(ud->my_basic_cont,ud->my_basic_cont_main_style);
     mb_run(br.interpreter, true);
     dbg("exited");
     _mbsetfree(br.interpreter);
@@ -360,7 +364,7 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
   struct loadedProgram * ud = 0;
   //Check if programs are the same
 
-  log_i("_programForId(%s)=%d\n",id,old);
+  log_i("_programForId(%s)=0x%lx\n",id,old);
 
   if (old) {
     mb_get_userdata(*old, (void **)&ud);
@@ -412,6 +416,8 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
     struct loadedProgram * loadedprg = (struct loadedProgram *)malloc(sizeof(struct loadedProgram));
     memcpy(loadedprg->hash, code, 30);
     loadedprg->busy = 0;
+    loadedprg->my_basic_cont = my_basic_cont;
+    loadedprg->my_basic_cont_main_style = my_basic_cont_main_style;
     mb_set_userdata(bas_parent, loadedprg);
     log_i("LoadProgram found root\n");
     return 0;
@@ -443,11 +449,13 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
       strcpy(loadedprg->programID, id);
       loadedprg->programID[strlen(id)] = 0;
       loadedprg->busy = 0;
+      loadedprg->my_basic_cont=my_basic_cont;
+      loadedprg->my_basic_cont_main_style=my_basic_cont_main_style;
       
 
       mb_set_userdata(n, loadedprg);
       loadedPrograms[i] = n;
-      log_i("LoadProgram found slot %d\n",i);
+      log_i("LoadProgram found slot %d for %s as 0x%lx\n",i, id, n);
       return 0;
     }
   }
@@ -544,9 +552,9 @@ void _MyBasic::runLoaded(const char * id) {
    makeRequest(*_programForId(id),(mb_value_t *)*_programForId(id));
 }
 
-// void _MyBasic::setLv( const char *id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
-//   _setLv(id, my_basic_cont, my_basic_cont_main_style );
-// }
+void _MyBasic::setLv( const char *id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
+  _setLv(id, my_basic_cont, my_basic_cont_main_style );
+}
 
 void _MyBasic::closeProgram(const char * id) {
   _closeProgram(id);

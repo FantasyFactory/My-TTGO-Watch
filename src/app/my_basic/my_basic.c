@@ -852,7 +852,8 @@ typedef struct _tuple3_t {
 
 #define _NO_EAT_COMMA 2
 
-typedef struct mb_interpreter_t {
+typedef struct 
+mb_interpreter_t {
 	/** Fundamental */
 #ifdef MB_ENABLE_FORK
 	struct mb_interpreter_t* forked_from;
