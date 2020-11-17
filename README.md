@@ -3,7 +3,7 @@
 &nbsp;
 <img src="https://img.shields.io/github/license/fantasyfactory/My-TTGO-Watch-MyBasic?style=for-the-badge" />
 &nbsp;
-<a href="https://www.buymeacoffee.com/Fantasyfactory" target="_blank"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%82%AC5-orange?style=for-the-badge&logo=buy-me-a-coffee" /></a>
+<a href="https://www.buymeacoffee.com/Corrado" target="_blank"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%82%AC5-orange?style=for-the-badge&logo=buy-me-a-coffee" /></a>
 </p>
 <hr/>
 
@@ -33,7 +33,7 @@ Qualsiasi contributo a questo repository è il benvenuto! Non esitate a creare p
 <p>
 Se volete, potete offrirmi un caffè.
 <br/><br/>
-<a href="https://www.buymeacoffee.com/FantasyFactory" target="_blank"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%82%AC5-orange?style=for-the-badge&logo=buy-me-a-coffee" /></a>
+<a href="https://www.buymeacoffee.com/Corrado" target="_blank"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%82%AC5-orange?style=for-the-badge&logo=buy-me-a-coffee" /></a>
 </p>
 
 
@@ -61,5 +61,5 @@ Every Contribution to this repository is highly welcome! Don't fear to create pu
 <p>
 If you want to donate to the author then you can buy me a coffee.
 <br/><br/>
-<a href="https://www.buymeacoffee.com/FantasyFactory" target="_blank"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%82%AC5-orange?style=for-the-badge&logo=buy-me-a-coffee" /></a>
+<a href="https://www.buymeacoffee.com/Corrado" target="_blank"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%82%AC5-orange?style=for-the-badge&logo=buy-me-a-coffee" /></a>
 </p>
