@@ -191,7 +191,7 @@ bool InitBasic ( void ) {
 
 //#define NoBasObj
 #ifndef NoBasObj    
-    MyBasic.begin(MyBasicThreads);
+    MyBasic.begin(1 /*MyBasicThreads*/, my_basic_cont, &my_basic_cont_main_style);
     int ret;
     
     ret=MyBasic.loadProgram(buffer, BasFileName, my_basic_cont, &my_basic_cont_main_style);

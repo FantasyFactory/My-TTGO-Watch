@@ -28,6 +28,10 @@
 
 #define dbg(x) Serial.println(x)
 
+#define BasIdLenght 32
+#define BasTasks 4
+#define MaxLoadedBas 8
+
 //The high level OOP API
 _MyBasic MyBasic;
 
@@ -38,14 +42,14 @@ _MyBasic MyBasic;
 //This is a set of queues
 static QueueHandle_t request_queue;
 
-//Allow up to 8 tasks
-static TaskHandle_t basTasks[8];
+//Allow up to 4 tasks
+static TaskHandle_t basTasks[BasTasks];
 
 //This is the queue used to request that a basic interpreter thread does something
 static QueueHandle_t requestqueue;
 
 //List of the interpreters for all loaded programs
-static mb_interpreter_t *loadedPrograms[16];
+static mb_interpreter_t *loadedPrograms[MaxLoadedBas];
 
 //The root basic interpreter, passing a null pointer when getting by ID returns this
 mb_interpreter_t* bas_parent = NULL;
@@ -57,7 +61,7 @@ SemaphoreHandle_t bas_gil;
 //The userdata struct for each loadedProgram interpreter
 struct loadedProgram {
   //This is how we can know which program to replace when updating with a new version
-  char programID[16];
+  char programID[BasIdLenght];
 
   //The first 30 bytes of a file identify its "version" so we don't
   //replace things that don't need replacing.
@@ -92,7 +96,7 @@ static mb_interpreter_t** _programForId(const char * id) {
       return 0;
     }
   }
-  for (char i = 0; i < 16; i++) {
+  for (char i = 0; i < MaxLoadedBas; i++) {
     if (loadedPrograms[i]) {
       mb_get_userdata(loadedPrograms[i], (void**)&ud);
       if (strcmp(ud->programID, id) == 0) { 
@@ -276,13 +280,13 @@ int bas_delay_rtos(struct mb_interpreter_t* s, void** l) {
   return result;
 }
 
-void _MyBasic::begin(char numThreads) {
+void _MyBasic::begin(char numThreads, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style) {
 
-  for (char i = 0; i < 16; i++) {
-    loadedPrograms[i] == 0;
+  for (char i = 0; i < MaxLoadedBas; i++) {
+    loadedPrograms[i] = 0;
   }
-  mb_init();
 
+  mb_init();
 
   //Start the root interpreter
   const char * code =  "'The only line in this root program currently is this comment\n";
@@ -291,14 +295,15 @@ void _MyBasic::begin(char numThreads) {
   enableSerialPrint(bas_parent);
   enableFileModule(bas_parent);
   enableVariousModule(bas_parent);
+  enableLVGL(bas_parent, my_basic_cont, my_basic_cont_main_style);
 
   mb_remove_func(bas_parent,"DELAY");
   mb_register_func(bas_parent, "DELAY", bas_delay_rtos);
 
   mb_set_error_handler(bas_parent, _on_error); // CC
-  mb_load_string(bas_parent,code, true);
+  mb_load_string(bas_parent, code, true);
 
-  struct loadedProgram * loadedprg = (struct loadedProgram *)malloc(sizeof(struct loadedProgram));
+  struct loadedProgram * loadedprg = (struct loadedProgram *)ps_malloc(sizeof(struct loadedProgram));
   memcpy(loadedprg->hash, code, 30);
   loadedprg->busy = 0;
   mb_set_userdata(bas_parent, loadedprg);
@@ -308,7 +313,7 @@ void _MyBasic::begin(char numThreads) {
   xSemaphoreGive(bas_gil);
   request_queue = xQueueCreate( 25, sizeof(struct BasRequest));
 
-  for(char i =0; i<numThreads; i++) {
+  for(char i=0; i<numThreads; i++) {
     xTaskCreatePinnedToCore(BasicInterpreterTask,
                 "MyBasic",
                 stackSize,
@@ -359,7 +364,7 @@ void mb_wait_directly_free(mb_interpreter_t *s,int sleepfor, char force_close, i
 
 //Load a new program with the given ID, replacing any with the same ID if the
 //first 30 bytes are different.
-int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
+int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont = NULL, lv_style_t *my_basic_cont_main_style = NULL) {
   mb_interpreter_t ** old = _programForId(id);
   struct loadedProgram * ud = 0;
   //Check if programs are the same
@@ -413,7 +418,7 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
     mb_set_error_handler(bas_parent, _on_error);
     mb_load_string(bas_parent, code, true);
 
-    struct loadedProgram * loadedprg = (struct loadedProgram *)malloc(sizeof(struct loadedProgram));
+    struct loadedProgram * loadedprg = (struct loadedProgram *)ps_malloc(sizeof(struct loadedProgram));
     memcpy(loadedprg->hash, code, 30);
     loadedprg->busy = 0;
     loadedprg->my_basic_cont = my_basic_cont;
@@ -424,7 +429,7 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
   }
 
   //Find a free interpreter slot
-  for (char i = 0; i < 16; i++) {
+  for (char i = 0; i < MaxLoadedBas; i++) {
     if (loadedPrograms[i] == 0) {
       mb_interpreter_t * n = 0;
       mb_open_child(&n, &bas_parent);
@@ -444,7 +449,7 @@ int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv
 
       mb_set_yield(n, basyield);
 
-      struct loadedProgram * loadedprg = (struct loadedProgram *) malloc(sizeof(struct loadedProgram));
+      struct loadedProgram * loadedprg = (struct loadedProgram *) ps_malloc(sizeof(struct loadedProgram));
       memcpy(loadedprg->hash, code, 30);
       strcpy(loadedprg->programID, id);
       loadedprg->programID[strlen(id)] = 0;
@@ -484,9 +489,9 @@ int _MyBasic::appendInput(const char * data, int len,const char * id) {
     mb_get_userdata(*old, (void **)&ud);
     //Check if the versions are the same
     if(ud->inputBuffer) {
-      ud->inputBuffer=(char *)realloc(ud->inputBuffer, ud->inputBufferLen+len+1);
+      ud->inputBuffer=(char *)ps_realloc(ud->inputBuffer, ud->inputBufferLen+len+1);
     } else {
-      ud->inputBuffer = (char *)malloc(len+1);
+      ud->inputBuffer = (char *)ps_malloc(len+1);
     }
     memcpy(ud->inputBuffer, data, len);
     ud->inputBufferLen += len;

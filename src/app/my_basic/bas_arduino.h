@@ -31,12 +31,12 @@ class _MyBasic
 {
 
     public:
-    void begin(char);
+    void begin(char,  lv_obj_t *, lv_style_t *);
     void yield();
     int updateProgram(const char *, const char *);
     void runLoaded(const char *);
     //int loadProgram(const char *, const char *);
-    int loadProgram(const char * code, const char * id, lv_obj_t *, lv_style_t * );
+    int loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont = NULL, lv_style_t *my_basic_cont_main_style = NULL);
     int appendInput(const char * data, int len, const char * id);
     void setLv( const char *id, lv_obj_t *, lv_style_t *);
     void closeProgram(const char *);

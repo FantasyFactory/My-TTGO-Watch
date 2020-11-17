@@ -457,7 +457,7 @@ void SetLvPtr(lv_obj_t* p, lv_style_t* s) {
     my_basic_main_lv_obj = p;
     my_basic_main_lv_style = s;
 #ifdef LogDebug
-        log_i("{SetLvObj(0x%lx, 0x%lx)}\n", p, s);
+        log_i("{SetLvPtr(0x%lx, 0x%lx)}\n", p, s);
 #endif
 }
 
