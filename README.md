@@ -23,7 +23,7 @@ Il passo successivo sarà creare una sorta di "app store", in modo che le applic
 # Gruppo Telegram
 
 Questo l'indirizzo del gruppo Telegram:
-https://t.me/TTGO_Watch
+https://t.me/TTGO_Watch_MyBasic
 
 # Installazione
 
@@ -51,7 +51,7 @@ The next step will be to create a kind of "app store" so that BASIC apps can be 
 # Telegram chatgroup
 
 Telegram chatgroup is here:
-https://t.me/TTGO_Watch
+https://t.me/TTGO_Watch_MyBasic
 
 # Install
 
