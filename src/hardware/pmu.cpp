@@ -66,7 +66,7 @@ void pmu_setup( void ) {
     pinMode( AXP202_INT, INPUT );
     attachInterrupt( AXP202_INT, &pmu_irq, FALLING );
 
-    powermgm_register_cb( POWERMGM_SILENCE_WAKEUP | POWERMGM_STANDBY | POWERMGM_WAKEUP, pmu_powermgm_event_cb, "pmu" );
+    powermgm_register_cb( POWERMGM_SILENCE_WAKEUP | POWERMGM_STANDBY | POWERMGM_WAKEUP | POWERMGM_ENABLE_INTERRUPTS | POWERMGM_DISABLE_INTERRUPTS , pmu_powermgm_event_cb, "pmu" );
     powermgm_register_loop_cb( POWERMGM_SILENCE_WAKEUP | POWERMGM_STANDBY | POWERMGM_WAKEUP , pmu_powermgm_loop_cb, "pmu loop" );
     blectl_register_cb( BLECTL_CONNECT, pmu_blectl_event_cb, "pmu blectl" );
 }
@@ -83,6 +83,12 @@ bool pmu_powermgm_event_cb( EventBits_t event, void *arg ) {
         case POWERMGM_WAKEUP:           pmu_wakeup();
                                         break;
         case POWERMGM_SILENCE_WAKEUP:   pmu_wakeup();
+                                        break;
+        case POWERMGM_ENABLE_INTERRUPTS:
+                                        attachInterrupt( AXP202_INT, &pmu_irq, FALLING );
+                                        break;
+        case POWERMGM_DISABLE_INTERRUPTS:
+                                        detachInterrupt( AXP202_INT );
                                         break;
     }
     return( true );
@@ -130,6 +136,11 @@ void pmu_loop( void ) {
         }
         if ( ttgo->power->isPEKShortPressIRQ() ) {
             powermgm_set_event( POWERMGM_PMU_BUTTON );
+            ttgo->power->clearIRQ();
+            return;
+        }
+        if ( ttgo->power->isPEKLongtPressIRQ() ) {
+            powermgm_set_event( POWERMGM_PMU_LONG_BUTTON );
             ttgo->power->clearIRQ();
             return;
         }
