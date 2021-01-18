@@ -111,12 +111,8 @@ void setup()
     fxrates_app_setup();
     powermeter_app_setup();
     my_basic_app_setup();
-    
-    /*
 	FindPhone_setup();
-  	/*
-     *
-     */
+
     if ( wifictl_get_autoon() && ( pmu_is_charging() || pmu_is_vbus_plug() || ( pmu_get_battery_voltage() > 3400) ) )
         wifictl_on();
 
