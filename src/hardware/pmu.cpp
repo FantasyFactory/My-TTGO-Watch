@@ -137,11 +137,13 @@ void pmu_loop( void ) {
         if ( ttgo->power->isPEKShortPressIRQ() ) {
             powermgm_set_event( POWERMGM_PMU_BUTTON );
             ttgo->power->clearIRQ();
+            pmu_send_cb( PMUCTL_SHORT_PRESS, NULL );
             return;
         }
         if ( ttgo->power->isPEKLongtPressIRQ() ) {
             powermgm_set_event( POWERMGM_PMU_LONG_BUTTON );
             ttgo->power->clearIRQ();
+            pmu_send_cb( PMUCTL_LONG_PRESS, NULL );
             return;
         }
         if ( ttgo->power->isTimerTimeoutIRQ() ) {
@@ -156,7 +158,7 @@ void pmu_loop( void ) {
     }
 
     if ( nextmillis < millis() ) {
-        nextmillis = millis() + 30000L;
+        nextmillis = millis() + 60000L;
         if ( pmu_get_battery_percent() != percent ) {
             pmu_update = true;
         }
