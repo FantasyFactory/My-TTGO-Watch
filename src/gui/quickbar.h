@@ -1,6 +1,6 @@
 /****************************************************************************
- *   Aug 3 12:17:11 2020
- *   Copyright  2020  Dirk Brosswick
+ *   Su Jan 17 23:05:51 2021
+ *   Copyright  2021  Dirk Brosswick
  *   Email: dirk.brosswick@googlemail.com
  ****************************************************************************/
  
@@ -19,11 +19,29 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-#ifndef _IRCONTROLLER_SETUP_H
-    #define _IRCONTROLLER_SETUP_H
+#ifndef _QUICKBAR_H
+    #define _QUICKBAR_H
 
-    #include <TTGO.h>
+    #include "config.h"
 
-    void IRController_setup_setup( uint32_t tile_num );
+    typedef enum {
+        QUICKBAR_STYLE_NORMAL,
+        QUICKBAR_STYLE_LIGHT,
+        QUICKBAR_STYLE_DARK,
+        QUICKBAR_STYLE_TRANS,
+        QUICKBAR_STYLE_NUM
+    } quickbar_style_t;
 
-#endif // _EXAMPLE_APP_SETUP_H
+    /**
+     * @brief setup quickbar
+     * 
+     */
+    void quickbar_setup( void );
+    /**
+     * @brief hide or show the quickbar
+     * 
+     * @param hide  TRUE hide the quickbar and FALSE show the quickbar
+     */
+    void quickbar_hide( bool hide );
+
+#endif // _QUICKBAR_H

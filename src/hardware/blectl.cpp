@@ -71,8 +71,11 @@ uint32_t gadgetbridge_msg_size = 0;
 
 class BleCtlServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer, esp_ble_gatts_cb_param_t* param ) {
+        pServer->updateConnParams( param->connect.remote_bda, 1450, 1500, 0, 10000 );
         blectl_set_event( BLECTL_CONNECT );
         blectl_clear_event( BLECTL_DISCONNECT );
+        blectl_send_event_cb( BLECTL_CONNECT, (void *)"connected" );
+        blectl_msg_chain = msg_chain_delete( blectl_msg_chain );
         log_i("BLE connected");
 
         pServer->getAdvertising()->stop();
@@ -82,6 +85,7 @@ class BleCtlServerCallbacks: public BLEServerCallbacks {
         blectl_set_event( BLECTL_DISCONNECT );
         blectl_clear_event( BLECTL_CONNECT );
         blectl_send_event_cb( BLECTL_DISCONNECT, (void *)"disconnected" );
+        blectl_msg_chain = msg_chain_delete( blectl_msg_chain );
         blectl_msg.active = false;
         log_i("BLE disconnected");
 
@@ -320,8 +324,8 @@ void blectl_setup( void ) {
     pServer->getAdvertising()->addServiceUUID( pBatteryService->getUUID() );
 
     // Slow advertising interval for battery life
-    pServer->getAdvertising()->setMinInterval( 200 );
-    pServer->getAdvertising()->setMaxInterval( 300 );
+    pServer->getAdvertising()->setMinInterval( 700 );
+    pServer->getAdvertising()->setMaxInterval( 800 );
 
     if ( blectl_get_autoon() ) {
         blectl_on();
@@ -519,9 +523,9 @@ bool blectl_pmu_event_cb( EventBits_t event, void *arg ) {
     switch( event ) {
         case PMUCTL_BATTERY_PERCENT:
             percent = *(int32_t*)arg;
-			if ( blectl_get_event( BLECTL_CONNECT ) ) {
-				blectl_update_battery( percent, charging, plug );
-			}
+            if ( blectl_get_event( BLECTL_CONNECT ) ) {
+                blectl_update_battery( percent, charging, plug );
+            }
             break;
         case PMUCTL_CHARGING:
             charging = *(bool*)arg;
@@ -549,7 +553,12 @@ void blectl_update_battery( int32_t percent, bool charging, bool plug ) {
 }
 
 void blectl_send_msg( char *msg ) {
-    blectl_msg_chain = msg_chain_add_msg( blectl_msg_chain, msg );
+    if ( blectl_get_event( BLECTL_CONNECT ) ) {
+        blectl_msg_chain = msg_chain_add_msg( blectl_msg_chain, msg );
+    }
+    else {
+        log_e("msg can't send while bluetooth is not connected");
+    }
 }
 
 void blectl_send_next_msg( char *msg ) {

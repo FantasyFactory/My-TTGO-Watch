@@ -25,6 +25,7 @@
 #include <esp_wifi.h>
 #include <time.h>
 #include "driver/adc.h"
+#include "esp_err.h"
 #include "esp_pm.h"
 
 #include "pmu.h"
@@ -40,13 +41,14 @@
 #include "sound.h"
 
 #include "gui/mainbar/mainbar.h"
-#include <app/alarm_clock/alarm_in_progress.h>
 
 EventGroupHandle_t powermgm_status = NULL;
 portMUX_TYPE DRAM_ATTR powermgmMux = portMUX_INITIALIZER_UNLOCKED;
 
 callback_t *powermgm_callback = NULL;
 callback_t *powermgm_loop_callback = NULL;
+
+esp_pm_config_esp32_t pm_config;
 
 bool powermgm_send_event_cb( EventBits_t event );
 bool powermgm_send_loop_event_cb( EventBits_t event );
@@ -93,13 +95,29 @@ void powermgm_loop( void ) {
         //Network transfer times are likely a greater time consumer than actual computational time
         if (powermgm_get_event( POWERMGM_SILENCE_WAKEUP_REQUEST ) ) {
             log_i("go silence wakeup");
-            setCpuFrequencyMhz(80);
+            #if CONFIG_PM_ENABLE
+                pm_config.max_freq_mhz = 240;
+                pm_config.min_freq_mhz = 40;
+                pm_config.light_sleep_enable = true;
+                ESP_ERROR_CHECK( esp_pm_configure(&pm_config) );
+                log_i("custom arduino-esp32 framework detected, enable PM/DFS support");
+            #else
+                setCpuFrequencyMhz(80);
+            #endif
             powermgm_set_event( POWERMGM_SILENCE_WAKEUP );
             powermgm_send_event_cb( POWERMGM_SILENCE_WAKEUP );
         }
         else {
             log_i("go wakeup");
-            setCpuFrequencyMhz(240);
+            #if CONFIG_PM_ENABLE
+                pm_config.max_freq_mhz = 240;
+                pm_config.min_freq_mhz = 240;
+                pm_config.light_sleep_enable = false;
+                ESP_ERROR_CHECK( esp_pm_configure(&pm_config) );
+                log_i("custom arduino-esp32 framework detected, enable PM/DFS support");
+            #else
+                setCpuFrequencyMhz(240);
+            #endif
             powermgm_set_event( POWERMGM_WAKEUP );
             powermgm_send_event_cb( POWERMGM_WAKEUP );
             motor_vibe(3);
@@ -119,7 +137,7 @@ void powermgm_loop( void ) {
         powermgm_clear_event( POWERMGM_STANDBY | POWERMGM_SILENCE_WAKEUP | POWERMGM_WAKEUP );
         powermgm_set_event( POWERMGM_STANDBY );
 
-        adc_power_off();
+//        adc_power_off();
 
         if ( powermgm_send_event_cb( POWERMGM_STANDBY ) ) {
             if (!noBuzz) motor_vibe(3);  //Only buzz if a non silent wake was performed
@@ -138,16 +156,26 @@ void powermgm_loop( void ) {
             log_i("Free PSRAM heap: %d", ESP.getFreePsram());
             log_i("uptime: %d", millis() / 1000 );
             log_i("go standby blocked");
-            setCpuFrequencyMhz( 80 );
-            // from here, the consumption is round about 23mA
-            // total standby time is 19h without use?
+            #if CONFIG_PM_ENABLE
+                pm_config.max_freq_mhz = 80;
+                pm_config.min_freq_mhz = 40;
+                pm_config.light_sleep_enable = true;
+                ESP_ERROR_CHECK( esp_pm_configure(&pm_config) );
+                log_i("custom arduino-esp32 framework detected, enable PM/DFS support");
+                // from here, the consumption is round about 14mA
+                // total standby time is 30h without use?
+            #else
+                setCpuFrequencyMhz(80);
+                // from here, the consumption is round about 23mA
+                // total standby time is 19h without use?
+            #endif
         }
     }
     powermgm_clear_event( POWERMGM_SILENCE_WAKEUP_REQUEST | POWERMGM_WAKEUP_REQUEST | POWERMGM_STANDBY_REQUEST );
 
     // send loop event depending on powermem state
     if ( powermgm_get_event( POWERMGM_STANDBY ) ) {
-        vTaskDelay( 100 );
+        vTaskDelay( 250 );
         powermgm_send_loop_event_cb( POWERMGM_STANDBY );
     }
     else if ( powermgm_get_event( POWERMGM_WAKEUP ) ) {
@@ -215,4 +243,12 @@ bool powermgm_send_event_cb( EventBits_t event ) {
 
 bool powermgm_send_loop_event_cb( EventBits_t event ) {
     return( callback_send_no_log( powermgm_loop_callback, event, (void*)NULL ) );
+}
+
+void powermgm_disable_interrupts( void ) {
+    powermgm_send_event_cb( POWERMGM_DISABLE_INTERRUPTS );
+}
+
+void powermgm_enable_interrupts( void ) {
+    powermgm_send_event_cb( POWERMGM_ENABLE_INTERRUPTS );
 }

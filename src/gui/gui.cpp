@@ -25,6 +25,7 @@
 
 #include "gui.h"
 #include "statusbar.h"
+#include "quickbar.h"
 #include "screenshot.h"
 #include "keyboard.h"
 
@@ -47,6 +48,7 @@
 
 #include "hardware/powermgm.h"
 #include "hardware/display.h"
+#include "hardware/motor.h"
 
 lv_obj_t *img_bin;
 
@@ -79,6 +81,7 @@ void gui_setup( void )
     sound_settings_tile_setup();
 
     statusbar_setup();
+    quickbar_setup();
     lv_disp_trig_activity( NULL );
 
     gui_set_background_image( display_get_background_image() );
@@ -108,6 +111,12 @@ bool gui_powermgm_event_cb( EventBits_t event, void *arg ) {
                                         ttgo->startLvglTick();
                                         lv_disp_trig_activity( NULL );
                                         break;
+        case POWERMGM_DISABLE_INTERRUPTS:
+                                        TTGOClass::getWatch()->stopLvglTick();
+                                        break;
+        case POWERMGM_ENABLE_INTERRUPTS:
+                                        TTGOClass::getWatch()->startLvglTick();
+                                        break;                                        
     }
     return( true );
 }

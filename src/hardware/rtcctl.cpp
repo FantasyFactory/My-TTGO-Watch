@@ -60,10 +60,10 @@ callback_t *rtcctl_callback = NULL;
 
 void rtcctl_setup( void ) {
 
-    pinMode( RTC_INT, INPUT_PULLUP);
-    attachInterrupt( RTC_INT, &rtcctl_irq, FALLING );
+    pinMode( RTC_INT_PIN, INPUT_PULLUP);
+    attachInterrupt( RTC_INT_PIN, &rtcctl_irq, FALLING );
 
-    powermgm_register_cb( POWERMGM_SILENCE_WAKEUP | POWERMGM_STANDBY | POWERMGM_WAKEUP, rtcctl_powermgm_event_cb, "rtcctl" );
+    powermgm_register_cb( POWERMGM_SILENCE_WAKEUP | POWERMGM_STANDBY | POWERMGM_WAKEUP | POWERMGM_ENABLE_INTERRUPTS | POWERMGM_DISABLE_INTERRUPTS , rtcctl_powermgm_event_cb, "rtcctl" );
     powermgm_register_loop_cb( POWERMGM_SILENCE_WAKEUP | POWERMGM_WAKEUP, rtcctl_powermgm_loop_cb, "rtcctl loop" );
     timesync_register_cb( TIME_SYNC_OK, rtcctl_timesync_event_cb, "rtcctl timesync" );
 
@@ -162,12 +162,18 @@ void rtcctl_set_next_alarm( void ) {
 bool rtcctl_powermgm_event_cb( EventBits_t event, void *arg ) {
     switch( event ) {
         case POWERMGM_STANDBY:          log_i("go standby");
-                                        gpio_wakeup_enable( (gpio_num_t)RTC_INT, GPIO_INTR_LOW_LEVEL );
+                                        gpio_wakeup_enable( (gpio_num_t)RTC_INT_PIN, GPIO_INTR_LOW_LEVEL );
                                         esp_sleep_enable_gpio_wakeup ();
                                         break;
         case POWERMGM_WAKEUP:           log_i("go wakeup");
                                         break;
         case POWERMGM_SILENCE_WAKEUP:   log_i("go silence wakeup");
+                                        break;
+        case POWERMGM_ENABLE_INTERRUPTS:
+                                        attachInterrupt( RTC_INT_PIN, &rtcctl_irq, FALLING );
+                                        break;
+        case POWERMGM_DISABLE_INTERRUPTS:
+                                        detachInterrupt( RTC_INT_PIN );
                                         break;
     }
     return( true );

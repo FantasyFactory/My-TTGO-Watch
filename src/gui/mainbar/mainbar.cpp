@@ -29,6 +29,7 @@
 #include "app_tile/app_tile.h"
 #include "gui/keyboard.h"
 #include "gui/statusbar.h"
+#include "hardware/alloc.h"
 
 #include "setup_tile/battery_settings/battery_settings.h"
 #include "setup_tile/wlan_settings/wlan_settings.h"
@@ -72,7 +73,6 @@ void mainbar_setup( void ) {
     lv_style_set_border_width( &mainbar_button_style, LV_STATE_DEFAULT, 2 );
 
     mainbar = lv_tileview_create( lv_scr_act(), NULL);
-    lv_tileview_set_valid_positions( mainbar, tile_pos_table, tile_entrys );
     lv_tileview_set_edge_flash( mainbar, false);
     lv_obj_add_style( mainbar, LV_OBJ_PART_MAIN, &mainbar_style );
     lv_page_set_scrlbar_mode( mainbar, LV_SCRLBAR_MODE_OFF);
@@ -83,12 +83,12 @@ uint32_t mainbar_add_tile( uint16_t x, uint16_t y, const char *id ) {
     tile_entrys++;
 
     if ( tile_pos_table == NULL ) {
-        tile_pos_table = ( lv_point_t * )ps_malloc( sizeof( lv_point_t ) * tile_entrys );
+        tile_pos_table = ( lv_point_t * )MALLOC( sizeof( lv_point_t ) * tile_entrys );
         if ( tile_pos_table == NULL ) {
             log_e("tile_pos_table malloc faild");
             while(true);
         }
-        tile = ( lv_tile_t * )ps_malloc( sizeof( lv_tile_t ) * tile_entrys );
+        tile = ( lv_tile_t * )MALLOC( sizeof( lv_tile_t ) * tile_entrys );
         if ( tile == NULL ) {
             log_e("tile malloc faild");
             while(true);
@@ -98,14 +98,14 @@ uint32_t mainbar_add_tile( uint16_t x, uint16_t y, const char *id ) {
         lv_point_t *new_tile_pos_table;
         lv_tile_t *new_tile;
 
-        new_tile_pos_table = ( lv_point_t * )ps_realloc( tile_pos_table, sizeof( lv_point_t ) * tile_entrys );
+        new_tile_pos_table = ( lv_point_t * )REALLOC( tile_pos_table, sizeof( lv_point_t ) * tile_entrys );
         if ( new_tile_pos_table == NULL ) {
             log_e("tile_pos_table realloc faild");
             while(true);
         }
         tile_pos_table = new_tile_pos_table;
         
-        new_tile = ( lv_tile_t * )ps_realloc( tile, sizeof( lv_tile_t ) * tile_entrys );
+        new_tile = ( lv_tile_t * )REALLOC( tile, sizeof( lv_tile_t ) * tile_entrys );
         if ( new_tile == NULL ) {
             log_e("tile realloc faild");
             while(true);

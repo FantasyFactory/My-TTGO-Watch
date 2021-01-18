@@ -48,6 +48,7 @@ lv_obj_t *display_rotation_list = NULL;
 lv_obj_t *display_bg_img_list = NULL;
 lv_obj_t *display_vibe_onoff = NULL;
 lv_obj_t *display_block_return_maintile_onoff = NULL;
+lv_obj_t *display_take_screenshot_onoff = NULL;
 lv_obj_t *display_background_image = NULL;
 
 LV_IMG_DECLARE(brightness_64px);
@@ -347,3 +348,6 @@ static void display_background_image_setup_event_cb( lv_obj_t * obj, lv_event_t 
     }
 }
 
+uint32_t display_get_setup_tile_num( void ) {
+    return ( display_tile_num_1 );
+}

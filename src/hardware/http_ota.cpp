@@ -30,18 +30,20 @@
 
 #include "callback.h"
 #include "http_ota.h"
+#include "alloc.h"
+#include "powermgm.h"
 
 callback_t *http_ota_callback = NULL;
 bool http_ota_send_event_cb( EventBits_t event, void *arg );
 
 bool http_ota_start( const char* url, const char* md5 ) {
-    int downloaded = 0;
-    int written = 0;
-    int total = 1;
-    int len = 1;
-    uint8_t buff[ 1024 * 2 ] = { 0 };
-    size_t size = sizeof( buff );
-    bool ret = true;
+    float downloaded = 0;                               /** @brief downloaded firmware size in bytes*/
+    int32_t total = 1;                                  /** @brief total firmware size in bytes*/
+    int32_t written = 0;                                /** @brief written firmware data block in bytes*/
+    int32_t len = 1;                                    /** @brief remaining firmware data in bytes*/
+    size_t size = sizeof( HTTP_OTA_BUFFER_SIZE );
+    bool ret = true;                                    /** @brief return value */
+    uint8_t buff[ HTTP_OTA_BUFFER_SIZE ] = { 0 };       /** @brief firmware write buffer */
 
     HTTPClient http;
 
@@ -57,6 +59,7 @@ bool http_ota_start( const char* url, const char* md5 ) {
         downloaded = 0;
 
         WiFiClient * stream = http.getStreamPtr();
+        stream->setNoDelay( true );
 
         if ( Update.begin( total, U_FLASH ) ) {
             Update.setMD5( md5 );
@@ -65,19 +68,22 @@ bool http_ota_start( const char* url, const char* md5 ) {
                 if( http.connected() && ( len > 0 ) ) {
                     size = stream->available();
                     if( size > 0 ) {
-                        int c = stream->readBytes( buff, ( ( size > sizeof( buff ) ) ? sizeof( buff ) : size ) );
+                        int c = stream->readBytes( buff, ( ( size > HTTP_OTA_BUFFER_SIZE ) ? HTTP_OTA_BUFFER_SIZE : size ) );
+                        noInterrupts();
+                        powermgm_disable_interrupts();
                         written = Update.write( buff, c );
+                        powermgm_enable_interrupts();
+                        interrupts();
                         if ( written > 0 ) {
                             if( written != c ) {
                                 http_ota_send_event_cb( HTTP_OTA_ERROR, (void*)"Flashing chunk not full ... warning!" );
                                 log_w("Flashing chunk not full ... warning!");
                             }
                             downloaded += written;
-                            static int16_t old_progress = 0;
-                            int16_t progress = ( 100 * downloaded ) / total ;
+                            static float old_progress = -1;
+                            float progress = ( 100 * downloaded ) / total ;
                             if ( old_progress != progress ) {
                                 http_ota_send_event_cb( HTTP_OTA_PROGRESS, (void*)&progress );
-                                log_i("progress: %d", progress );
                                 old_progress = progress;
                             }
                         } else {
@@ -90,7 +96,6 @@ bool http_ota_start( const char* url, const char* md5 ) {
                             len -= c;
                         }
                     }
-                    delay( 1 );
                 }
             }
         }
@@ -121,6 +126,7 @@ bool http_ota_start( const char* url, const char* md5 ) {
         log_e("Download firmware ... failed!");
         ret = false;
     }
+
     return( ret );
 }
 

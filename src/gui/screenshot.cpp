@@ -21,13 +21,14 @@
  */
 #include "config.h"
 #include "screenshot.h"
+#include "hardware/alloc.h"
 
 uint16_t *png;
 
 static void screenshot_disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p );
 
 void screenshot_setup( void ) {
-    png = (uint16_t*)ps_malloc( lv_disp_get_hor_res( NULL ) * lv_disp_get_ver_res( NULL ) * sizeof( lv_color_t ) );
+    png = (uint16_t*)MALLOC( lv_disp_get_hor_res( NULL ) * lv_disp_get_ver_res( NULL ) * sizeof( lv_color_t ) );
     if ( png == NULL ) {
         log_e("screenshot malloc failed");
         while(1);
@@ -36,8 +37,10 @@ void screenshot_setup( void ) {
 
 void screenshot_take( void ) {
     lv_disp_drv_t driver;
-    lv_disp_t *system_disp;;
+    lv_disp_t *system_disp;
 
+    log_i("take screenshot");
+    
     system_disp = lv_disp_get_default();
     driver.flush_cb = system_disp->driver.flush_cb;
     system_disp->driver.flush_cb = screenshot_disp_flush;
@@ -47,11 +50,17 @@ void screenshot_take( void ) {
 }
 
 void screenshot_save( void ) {
-    SPIFFS.remove( SCREENSHOT_FILE_NAME );
+	if (SPIFFS.exists( SCREENSHOT_FILE_NAME )) {
+	    SPIFFS.remove( SCREENSHOT_FILE_NAME );
+	}
+
     fs::File file = SPIFFS.open( SCREENSHOT_FILE_NAME, FILE_WRITE );
     
     file.write( (uint8_t *)png, lv_disp_get_hor_res( NULL ) * lv_disp_get_ver_res( NULL ) * 2 );
+    file.flush();
     file.close();
+
+    log_i("save screenshot");
 }
 
 static void screenshot_disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ) {

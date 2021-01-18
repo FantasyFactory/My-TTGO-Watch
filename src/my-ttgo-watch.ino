@@ -54,6 +54,8 @@
 #include "app/image_ticker/image_ticker.h"
 #include "app/prayer_app/prayer_app.h"
 
+#include "app/fx_rates/fx_rates.h"
+#include "app/FindPhone/FindPhone.h"
 
 TTGOClass *ttgo = TTGOClass::getWatch();
 
@@ -65,6 +67,7 @@ void setup()
 
     ttgo->begin();
     ttgo->lvgl_begin();
+    framebuffer_setup();
 
     SPIFFS.begin();
     motor_setup();
@@ -116,9 +119,11 @@ void setup()
     image_ticker_setup();
     prayer_app_setup();
 
-    /*
-     *
-     */
+
+    fxrates_app_setup();
+    //powermeter_app_setup();
+	FindPhone_setup();
+
     if ( wifictl_get_autoon() && ( pmu_is_charging() || pmu_is_vbus_plug() || ( pmu_get_battery_voltage() > 3400) ) )
         wifictl_on();
 
