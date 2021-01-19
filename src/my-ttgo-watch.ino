@@ -110,17 +110,15 @@ void setup()
     weather_app_setup();
     stopwatch_app_setup();
     alarm_clock_setup();
-    crypto_ticker_setup();
+    //crypto_ticker_setup();
     //example_app_setup();
     osmand_app_setup();
     IRController_setup();
     //powermeter_app_setup();
     my_basic_app_setup();
     image_ticker_setup();
-    prayer_app_setup();
-
-
-    fxrates_app_setup();
+    prayer_app_setup(); 
+    // fxrates_app_setup();
     //powermeter_app_setup();
 	FindPhone_setup();
 
