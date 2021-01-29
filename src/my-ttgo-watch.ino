@@ -73,8 +73,6 @@ void setup()
     SPIFFS.begin();
     motor_setup();
 
-    // force to store all new heap allocations in psram to get more internal ram
-    heap_caps_malloc_extmem_enable( 1 );
     display_setup();
     screenshot_setup();
 
@@ -128,8 +126,6 @@ void setup()
     if ( wifictl_get_autoon() && ( pmu_is_charging() || pmu_is_vbus_plug() || ( pmu_get_battery_voltage() > 3400) ) )
         wifictl_on();
 
-    // enable to store data in normal heap
-    heap_caps_malloc_extmem_enable( 16*1024 );
     blectl_setup();
     sound_setup();
     sound_play_spiffs_mp3( "/mosconi_macheoh.mp3" );
