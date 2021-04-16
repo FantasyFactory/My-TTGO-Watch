@@ -24,30 +24,13 @@
 
     #include "TTGO.h"
     #include "callback.h"
+    #include "hardware/config/bmaconfig.h"
     
     #define BMACTL_EVENT_INT            _BV(0)              /** @brief event mask for bma interrupt */
     #define BMACTL_DOUBLECLICK          _BV(1)              /** @brief event mask for an doubleclick event */
     #define BMACTL_STEPCOUNTER          _BV(2)              /** @brief event mask for an stepcounter update event, callback arg is (uint32*) */
-    #define BMACTL_TILT                 _BV(3)              /** @brief event mask for an tilt event */
-    #define BMACTL_DAILY_STEPCOUNTER    _BV(4)              /** @brief event mask for an tilt event */
-
-    #define BMA_JSON_COFIG_FILE         "/bma.json"         /** @brief defines json config file name */
-
-    /**
-     * @brief bma config structure
-     */
-    typedef struct {
-        bool enable=true;
-    } bma_config_t;
-
-    enum {  
-        BMA_STEPCOUNTER,
-        BMA_DOUBLECLICK,
-        BMA_TILT,
-        BMA_DAILY_STEPCOUNTER,
-        BMA_CONFIG_NUM
-    };
-
+    #define BMACTL_STEPCOUNTER_RESET    _BV(3)              /** @brief event mask for an stepcounter reset event */
+    #define BMACTL_TILT                 _BV(4)              /** @brief event mask for an tilt event */
     /**
      * @brief setup bma activity measurement
      */
@@ -101,5 +84,15 @@
      * @return  true if success, false if failed
      */
     bool bma_register_cb( EventBits_t event, CALLBACK_FUNC callback_func, const char *id );
-
+    /**
+     * @brief return the current step counter value
+     *
+     * @return steps from the stepcounter as uint32_t value
+     */
+    uint32_t bma_get_stepcounter( void );
+    /**
+     * @brief reset the stepcounter value
+     */
+    void bma_reset_stepcounter( void );
+    
 #endif // _BMA_H

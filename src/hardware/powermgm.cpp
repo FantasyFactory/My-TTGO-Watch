@@ -39,8 +39,10 @@
 #include "display.h"
 #include "rtcctl.h"
 #include "sound.h"
+#include "gpsctl.h"
 
 #include "gui/mainbar/mainbar.h"
+#include "utils/fakegps.h"
 
 EventGroupHandle_t powermgm_status = NULL;
 portMUX_TYPE DRAM_ATTR powermgmMux = portMUX_INITIALIZER_UNLOCKED;
@@ -63,8 +65,10 @@ void powermgm_setup( void ) {
     touch_setup();
     timesync_setup();
     rtcctl_setup();
+    gpsctl_setup();
     blectl_read_config();
     sound_read_config();
+    fakegps_setup();
     
     powermgm_set_event( POWERMGM_WAKEUP );
 }
@@ -75,7 +79,7 @@ void powermgm_loop( void ) {
      * check if power button was release
      */
     if( powermgm_get_event( POWERMGM_POWER_BUTTON ) ) {
-        if ( powermgm_get_event( POWERMGM_STANDBY ) || powermgm_get_event( POWERMGM_SILENCE_WAKEUP ) ) {
+        if ( powermgm_get_event( POWERMGM_STANDBY | POWERMGM_SILENCE_WAKEUP ) ) {
             powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
         }
         else {
@@ -90,7 +94,7 @@ void powermgm_loop( void ) {
         lv_disp_trig_activity( NULL );
         powermgm_clear_event( POWERMGM_WAKEUP_REQUEST );
     }
-  
+
     /*
      * handle powermgm request
      */
@@ -153,7 +157,10 @@ void powermgm_loop( void ) {
                 setCpuFrequencyMhz(240);
                 log_i("CPU speed = 240MHz");
             #endif
-            motor_vibe(3);
+            #if CORE_DEBUG_LEVEL > 3
+                // For debug, no interest for effective user
+                motor_vibe(3);
+            #endif
         }
 
         log_i("Free heap: %d", ESP.getFreeHeap());
@@ -166,7 +173,10 @@ void powermgm_loop( void ) {
          * avoid buzz when standby after silent wake
          */
         if ( powermgm_get_event( POWERMGM_SILENCE_WAKEUP ) ) {
-            motor_vibe(3);
+            #if CORE_DEBUG_LEVEL > 3
+                // For debug, no interest for effective user
+                motor_vibe(3);
+            #endif
             delay( 100 );
         }
         /*

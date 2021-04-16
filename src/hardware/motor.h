@@ -23,15 +23,7 @@
     #define _MOTOR_H
 
     #include "TTGO.h"
-
-    #define MOTOR_JSON_CONFIG_FILE  "/motor.json"           /** @brief defines binary config file name */
-
-    /**
-     * @brief motor config structure in memory
-     */
-    typedef struct {
-        bool vibe = true;           /** @brief vibe config item, true if vibe enabled, false if disabled */
-    } motor_config_t;
+    #include "hardware/config/motorconfig.h"
 
     /**
      * @brief setup motor I/O
@@ -45,10 +37,10 @@
      *  It is usefull for alrm or notifications which can be set independently
      */
     void motor_vibe( int time, bool enforced = false );
-    /*
+    /**
      * @brief   get the current vibe configuration
      * 
-     * @return  bool    true means vibe enable, false means disable
+     * @return  true means vibe enable, false means disable
      */
     bool motor_get_vibe_config( void );
     /**

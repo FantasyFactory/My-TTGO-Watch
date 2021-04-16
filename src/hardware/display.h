@@ -23,32 +23,11 @@
     #define _DISPLAY_H
 
     #include "callback.h"
+    #include "hardware/config/displayconfig.h"
 
     #define DISPLAYCTL_BRIGHTNESS       _BV(0)          /** @brief event mask display brightness, callback arg is (uint32_t*) */
     #define DISPLAYCTL_TIMEOUT          _BV(1)          /** @brief event mask display timeout, callback arg is (bool*) */
     #define DISPLAYCTL_SCREENSHOT       _BV(2)          /** @brief event mask display screenshot, callback arg is (bool*) */
-
-    #define DISPLAY_JSON_CONFIG_FILE    "/display.json" /** @brief defines json config file name */
-    
-    #define DISPLAY_MIN_TIMEOUT         15              /** @brief min display timeout */
-    #define DISPLAY_MAX_TIMEOUT         300             /** @brief max display timeout */
-    #define DISPLAY_MIN_BRIGHTNESS      8               /** @brief min display brightness */
-    #define DISPLAY_MAX_BRIGHTNESS      255             /** @brief max display brightness */
-    #define DISPLAY_MIN_ROTATE          0               /** @brief min display rotation */
-    #define DISPLAY_MAX_ROTATE          270             /** @brief max display rotation */
-
-    /**
-     * @brief display config structure
-     */
-    typedef struct {
-        uint32_t brightness = DISPLAY_MAX_BRIGHTNESS;   /** @brief display brightness */
-        uint32_t timeout = DISPLAY_MIN_TIMEOUT;         /** @brief display time out */
-        uint32_t rotation = 0;                          /** @brief display rotation */
-        bool block_return_maintile = false;             /** @brief block back to main tile on standby */
-        bool use_dma = true;                            /** @brief use dma framebuffer */
-        bool use_double_buffering = false;              /** @brief use double framebuffer */
-        uint32_t background_image = 2;                  /** @brief background image */
-    } display_config_t;
 
     /**
      * @brief setup display
@@ -154,6 +133,18 @@
      * @param background_image image number
      */
     void display_set_background_image( uint32_t background_image );
+    /**
+     * @brief set the vibe feedback
+     * 
+     * @param vibe true or false, true for enabling touch feeback
+     */
+    void display_set_vibe( bool vibe );
+    /**
+     * @brief get the vibe feedback
+     * 
+     * @return true is vibe feedback is enabled, false otherwise
+     */
+    bool display_get_vibe( void );
     /**
      * @brief set display into standby
      */

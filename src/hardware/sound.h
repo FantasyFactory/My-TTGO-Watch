@@ -24,19 +24,10 @@
 
     #include "TTGO.h"
     #include "callback.h"
+    #include "hardware/config/soundconfig.h"
 
     #define SOUNDCTL_ENABLED           _BV(0)         /** @brief event mask for sound enabled/disable, callback arg is (bool*) */
     #define SOUNDCTL_VOLUME            _BV(1)         /** @brief event mask for sound volume change, callback arg is (uint8_t*)  */
-
-    #define SOUND_JSON_CONFIG_FILE    "/sound.json"     /** @brief defines json config file name */
-
-    /**
-     * @brief sound config structure
-     */
-    typedef struct {
-        uint8_t volume = 50;    /** @brief sound value from 0..100 */
-        bool enable = true;     /** @brief sound on/off */
-    } sound_config_t;
 
     /**
      * @brief play mp3 file from SPIFFS by path/filename
@@ -57,6 +48,11 @@
      * @brief setup sound
      */
     void sound_setup( void );
+    /**
+     * @brief check if sound available
+     * @return true if available
+     */
+    bool sound_get_available( void );
     /**
      * @brief put sound output to standby (disable)
      */
@@ -123,7 +119,5 @@
      * @return  true if success, false if failed
      */
     bool sound_register_cb( EventBits_t event, CALLBACK_FUNC callback_func, const char *id );
-
-
 
 #endif // _SOUND_H
