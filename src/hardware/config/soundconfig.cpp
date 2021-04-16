@@ -27,6 +27,7 @@ sound_config_t::sound_config_t() : BaseJsonConfig(SOUND_JSON_CONFIG_FILE) {
 bool sound_config_t::onSave(JsonDocument& doc) {
     doc["enable"] = enable;
     doc["volume"] = volume;
+    doc["mosconi-call"] = mosconi_call;
 
     return true;
 }
@@ -34,6 +35,7 @@ bool sound_config_t::onSave(JsonDocument& doc) {
 bool sound_config_t::onLoad(JsonDocument& doc) {
     enable = doc["enable"] | false;
     volume = doc["volume"] | 100;
+    mosconi_call = doc["mosconi-call"];
 
     return true;
 }
@@ -41,6 +43,7 @@ bool sound_config_t::onLoad(JsonDocument& doc) {
 bool sound_config_t::onDefault( void ) {
     enable = false;
     volume = 100;
+    mosconi_call = true;
 
     return true;
 }

@@ -32,15 +32,6 @@
     #define SOUND_JSON_CONFIG_FILE    "/sound.json"     /** @brief defines json config file name */
 
     /**
-     * @brief sound config structure
-     */
-    typedef struct {
-        uint8_t volume = 50;    /** @brief sound value from 0..100 */
-        bool enable = true;     /** @brief sound on/off */
-        bool mosconi_call = true; /** Ma cos'è 'sto telefono */
-    } sound_config_t;
-
-    /**
      * @brief play mp3 file from SPIFFS by path/filename
      * 
      * @param   filename    the SPIFFS path to the file to be played

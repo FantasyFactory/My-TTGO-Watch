@@ -34,6 +34,7 @@
         sound_config_t();
         uint8_t volume = 50;    /** @brief sound value from 0..100 */
         bool enable = true;     /** @brief sound on/off */
+        bool mosconi_call = true;
 
         protected:
         ////////////// Available for overloading: //////////////
