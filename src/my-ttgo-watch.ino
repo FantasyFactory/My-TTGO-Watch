@@ -51,7 +51,7 @@
 #include "app/IRController/IRController.h"
 //#include "app/powermeter/powermeter_app.h"
 #include "app/my_basic/my_basic_app.h"
-#include "app/image_ticker/image_ticker.h"
+//#include "app/image_ticker/image_ticker.h"
 #include "app/prayer_app/prayer_app.h"
 
 #include "app/fx_rates/fx_rates.h"
@@ -122,7 +122,7 @@ void setup()
     //powermeter_app_setup();
 	FindPhone_setup();
     my_basic_app_setup();
-    image_ticker_setup();
+    //image_ticker_setup();
     prayer_app_setup(); 
     wifimon_app_setup();
     /*

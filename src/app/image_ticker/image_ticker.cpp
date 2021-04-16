@@ -33,7 +33,7 @@
 
 #include "image_ticker_fetch.h"
 
-#include "hardware/json_psram_allocator.h"
+#include "utils/json_psram_allocator.h"
 
 image_ticker_config_t image_ticker_config;
 
