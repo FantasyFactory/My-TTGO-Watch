@@ -590,7 +590,7 @@ void mb_subshell(char * source, char * id) {
   MB_UNLOCK;
 }
 
-static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code) {
+void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code) {
   mb_unrefvar(s);
   mb_unrefvar(p);
 

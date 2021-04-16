@@ -50,6 +50,7 @@ class _MyBasic
     int stackSize = 8192;
 
 };
-static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code);
+
+void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code);
 int bas_delay_rtos(struct mb_interpreter_t* s, void** l);
 extern _MyBasic MyBasic;

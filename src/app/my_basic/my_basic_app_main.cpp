@@ -226,6 +226,7 @@ bool DoBasic( void ) {
     MyBasic.runLoaded(BasFileName);  
 #else
     mb_run(bas, true);
+    return true;
 #endif
 }
 
