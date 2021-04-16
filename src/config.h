@@ -23,6 +23,8 @@
  */
 #ifndef _CONFIG_H 
 
+    #define LILYGO_WATCH_2020_V1
+    
     #if defined( LILYGO_WATCH_2020_V1 )
         #define WATCH_VERSION_NAME  "V1"
     #elif defined( LILYGO_WATCH_2020_V2 )
