@@ -24,6 +24,7 @@
 
     #include "TTGO.h"
     #include "callback.h"
+    #include "hardware/config/soundconfig.h"
 
     #define SOUNDCTL_ENABLED           _BV(0)         /** @brief event mask for sound enabled/disable, callback arg is (bool*) */
     #define SOUNDCTL_VOLUME            _BV(1)         /** @brief event mask for sound volume change, callback arg is (uint8_t*)  */
@@ -58,6 +59,11 @@
      * @brief setup sound
      */
     void sound_setup( void );
+    /**
+     * @brief check if sound available
+     * @return true if available
+     */
+    bool sound_get_available( void );
     /**
      * @brief put sound output to standby (disable)
      */

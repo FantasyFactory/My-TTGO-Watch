@@ -45,8 +45,6 @@ o semplicemente premere "build and upload" se non sei un nerdone masochista.
 
 * the webserver crashes the ESP32 really often
 * the battery indicator is not accurate, rather a problem with the power management unit ( axp202 )
-* from time to time the esp32 crashes accidentally
-* and some other small things
 
 * image ticker si impalla continuamente, e quando non lo fa è comunque inutile
 * tutto l'orologio si impalla che sembra di sentire il germanone

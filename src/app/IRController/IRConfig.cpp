@@ -1,6 +1,6 @@
 #include <IRremoteESP8266.h>
 #include "IRConfig.h"
-#include "hardware/alloc.h"
+#include "utils/alloc.h"
 
 IRConfig::IRConfig() : BaseJsonConfig("ir-remote.json") {
     count = 0;
@@ -87,6 +87,11 @@ bool IRConfig::onSave(JsonDocument& document) {
   document["defSpacing"] = defSpacing;
 
   return true;
+}
+
+
+bool IRConfig::onDefault( void ) {
+    return true;
 }
 
 bool IRConfig::onLoad(JsonDocument& document) {

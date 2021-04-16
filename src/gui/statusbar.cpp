@@ -42,6 +42,7 @@
 #include "hardware/pmu.h"
 #include "hardware/sound.h"
 #include "hardware/display.h"
+#include "hardware/gpsctl.h"
 
 #include "gui/mainbar/mainbar.h"
 #include "gui/mainbar/setup_tile/wlan_settings/wlan_settings.h"
@@ -78,6 +79,7 @@ lv_status_bar_t statusicon[ STATUSBAR_NUM ] =
     { NULL, LV_SYMBOL_BLUETOOTH, LV_ALIGN_OUT_LEFT_MID, &statusbarstyle[ STATUSBAR_STYLE_WHITE ] },
     { NULL, LV_SYMBOL_WIFI, LV_ALIGN_OUT_LEFT_MID, &statusbarstyle[ STATUSBAR_STYLE_WHITE ] },
     { NULL, LV_SYMBOL_VOLUME_MAX, LV_ALIGN_OUT_LEFT_MID, &statusbarstyle[ STATUSBAR_STYLE_WHITE ] },
+    { NULL, LV_SYMBOL_GPS, LV_ALIGN_OUT_LEFT_MID, &statusbarstyle[ STATUSBAR_STYLE_WHITE ] },
     { NULL, LV_SYMBOL_BELL, LV_ALIGN_OUT_LEFT_MID, &statusbarstyle[ STATUSBAR_STYLE_WHITE ] },
     { NULL, LV_SYMBOL_WARNING, LV_ALIGN_OUT_LEFT_MID, &statusbarstyle[ STATUSBAR_STYLE_WHITE ] },
     { NULL, LV_SYMBOL_BELL , LV_ALIGN_OUT_LEFT_MID, &statusbarstyle[ STATUSBAR_STYLE_WHITE ] },
@@ -90,6 +92,7 @@ void statusbar_event( lv_obj_t * statusbar, lv_event_t event );
 void statusbar_wifi_event_cb( lv_obj_t *wifi, lv_event_t event );
 void statusbar_bluetooth_event_cb( lv_obj_t *bluetooth, lv_event_t event );
 void statusbar_volume_slider_event_handler_cb( lv_obj_t *sound_slider, lv_event_t event );
+bool statusbar_gpsctl_event_cb( EventBits_t event, void *arg );
 void statusbar_sound_event_cb( lv_obj_t *sound, lv_event_t event );
 void statusbar_display_event_cb( lv_obj_t *display, lv_event_t event );
 void statusbar_brightness_slider_event_handler_cb( lv_obj_t *brightness_slider, lv_event_t event );
@@ -289,6 +292,7 @@ void statusbar_setup( void )
     statusbar_hide_icon( STATUSBAR_WIFI );
     statusbar_hide_icon( STATUSBAR_BLUETOOTH );
     statusbar_hide_icon( STATUSBAR_VOLUME );
+    statusbar_hide_icon( STATUSBAR_GPS );
 
     if ( rtcctl_get_alarm_data()->enabled ) {
         statusbar_show_icon( STATUSBAR_ALARM );
@@ -303,11 +307,18 @@ void statusbar_setup( void )
     wifictl_register_cb( WIFICTL_CONNECT | WIFICTL_DISCONNECT | WIFICTL_OFF | WIFICTL_ON | WIFICTL_SCAN | WIFICTL_WPS_SUCCESS | WIFICTL_WPS_FAILED | WIFICTL_CONNECT_IP, statusbar_wifictl_event_cb, "statusbar wifi" );
     rtcctl_register_cb( RTCCTL_ALARM_ENABLED | RTCCTL_ALARM_DISABLED, statusbar_rtcctl_event_cb, "statusbar rtc" );
     bma_register_cb( BMACTL_STEPCOUNTER, statusbar_bmactl_event_cb, "statusbar stepcounter" );
-    pmu_register_cb( PMUCTL_BATTERY_PERCENT | PMUCTL_CHARGING | PMUCTL_VBUS_PLUG, statusbar_pmuctl_event_cb, "statusbar pmu");
-    sound_register_cb( SOUNDCTL_ENABLED | SOUNDCTL_VOLUME, statusbar_soundctl_event_cb, "statusbar sound");
+    pmu_register_cb( PMUCTL_STATUS, statusbar_pmuctl_event_cb, "statusbar pmu");
     display_register_cb( DISPLAYCTL_BRIGHTNESS, statusbar_displayctl_event_cb, "statusbar display" );
+    gpsctl_register_cb( GPSCTL_ENABLE | GPSCTL_DISABLE | GPSCTL_FIX | GPSCTL_NOFIX, statusbar_gpsctl_event_cb, "statusbar gps" );
 
     statusbar_task = lv_task_create( statusbar_update_task, 250, LV_TASK_PRIO_MID, NULL );
+
+    if( sound_get_available() ) {
+        sound_register_cb( SOUNDCTL_ENABLED | SOUNDCTL_VOLUME, statusbar_soundctl_event_cb, "statusbar sound");
+    }
+    else {
+        lv_obj_set_hidden( statusbar_volume_cont, true );
+    }
 }
 
 void statusbar_update_task( lv_task_t * task ) {
@@ -323,6 +334,37 @@ void statusbar_update_task( lv_task_t * task ) {
         statusbar_refresh();
         statusbar_refresh_update = false;
     }
+}
+
+bool statusbar_gpsctl_event_cb( EventBits_t event, void *arg ) {
+    /*
+     * check if statusbar ready
+     */
+    if ( !statusbar_init ) {
+        log_e("statusbar not initialized");
+        return( true );
+    }
+
+    switch( event ) {
+        case GPSCTL_DISABLE:  
+            statusbar_hide_icon( STATUSBAR_GPS );
+            statusbar_style_icon( STATUSBAR_GPS, STATUSBAR_STYLE_GRAY );
+            break;
+        case GPSCTL_ENABLE:  
+            statusbar_show_icon( STATUSBAR_GPS );
+            statusbar_style_icon( STATUSBAR_GPS, STATUSBAR_STYLE_GRAY );
+            break;
+        case GPSCTL_FIX:  
+            statusbar_show_icon( STATUSBAR_GPS );
+            statusbar_style_icon( STATUSBAR_GPS, STATUSBAR_STYLE_WHITE );
+            break;
+        case GPSCTL_NOFIX:  
+            statusbar_show_icon( STATUSBAR_GPS );
+            statusbar_style_icon( STATUSBAR_GPS, STATUSBAR_STYLE_GRAY );
+            break;
+    }
+    return( true );
+
 }
 
 bool statusbar_soundctl_event_cb( EventBits_t event, void *arg ) {
@@ -370,6 +412,55 @@ bool statusbar_displayctl_event_cb( EventBits_t event, void *arg ) {
     return( true );
 }
 
+static void statusbar_pmuctl_update_batt( int32_t percent, bool charging, bool plug) {
+    char level[8]="";
+
+    if ( percent >= 0 && percent <= 100 ) {
+        snprintf( level, sizeof( level ), "%d%%", percent );
+    }
+    else if ( percent > 100 ) {
+        snprintf( level, sizeof( level ), "!%d%%", percent );
+    }
+    else {
+        snprintf( level, sizeof( level ), "?" );
+        percent = 0;
+    }
+    lv_label_set_text( statusicon[  STATUSBAR_BATTERY_PERCENT ].icon, (const char *)level );
+    if ( !plug ) {
+        if ( percent >= 75 ) { 
+            lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_FULL );
+        } else if( percent >=50 && percent < 74) {
+            lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_3 );
+        } else if( percent >=35 && percent < 49) {
+            lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_2 );
+        } else if( percent >=15 && percent < 34) {
+            lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_1 );
+        } else if( percent >=0 && percent < 14) {
+            lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_EMPTY );
+        }
+
+        if ( percent >= 25 ) {
+            statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_WHITE );
+        } else if ( percent >= 15 ) {
+            statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_YELLOW );
+        } else {
+            statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_RED );
+        }       
+    }
+
+    if ( charging ) {
+        statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_RED );
+    }
+    else {
+        statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_WHITE );
+    }
+
+    if ( plug ) {
+        lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_CHARGE );
+        statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_GREEN );
+    }
+}
+
 bool statusbar_pmuctl_event_cb( EventBits_t event, void *arg ) {
     /*
      * check if statusbar ready
@@ -379,68 +470,18 @@ bool statusbar_pmuctl_event_cb( EventBits_t event, void *arg ) {
         return( true );
     }
 
-    char level[8]="";
-    static int32_t percent = 0;
-    static bool plug = false;
-
     switch( event ) {
-        case PMUCTL_BATTERY_PERCENT:    if ( *(int32_t*)arg >= 0 && *(int32_t*)arg <= 100 ) {
-                                            snprintf( level, sizeof( level ), "%d%%", *(int32_t*)arg );
-                                            percent = *(int32_t*)arg;
-                                        }
-                                        else if ( *(int32_t*)arg > 100 ) {
-                                            snprintf( level, sizeof( level ), "!%d%%", *(int32_t*)arg );
-                                            percent = *(int32_t*)arg;
-                                        }
-                                        else {
-                                            snprintf( level, sizeof( level ), "?" );
-                                            percent = 0;
-                                        }
-                                        lv_label_set_text( statusicon[  STATUSBAR_BATTERY_PERCENT ].icon, (const char *)level );
-                                        if ( !plug ) {
-                                            if ( percent >= 75 ) { 
-                                                lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_FULL );
-                                            } else if( percent >=50 && percent < 74) {
-                                                lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_3 );
-                                            } else if( percent >=35 && percent < 49) {
-                                                lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_2 );
-                                            } else if( percent >=15 && percent < 34) {
-                                                lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_1 );
-                                            } else if( percent >=0 && percent < 14) {
-                                                lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_BATTERY_EMPTY );
-                                            }
-
-                                            if ( percent >= 25 ) {
-                                                statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_WHITE );
-                                            } else if ( percent >= 15 ) {
-                                                statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_YELLOW );
-                                            } else {
-                                                statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_RED );
-                                            }       
-                                        }
-                                        break;
-
-        case PMUCTL_CHARGING:           if ( *(bool*)arg ) {
-                                            statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_RED );
-                                        }
-                                        else {
-                                            statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_WHITE );
-                                        }
-                                        break;
-        case PMUCTL_VBUS_PLUG:          if ( *(bool*)arg ) {
-                                            lv_img_set_src( statusicon[ STATUSBAR_BATTERY ].icon, LV_SYMBOL_CHARGE );
-                                            statusbar_style_icon( STATUSBAR_BATTERY, STATUSBAR_STYLE_GREEN );
-                                            plug = true;
-                                        }
-                                        else {
-                                            plug = false;
-                                        }
-                                        break;
+        case PMUCTL_STATUS:
+            statusbar_pmuctl_update_batt(*(int32_t*)arg & PMUCTL_STATUS_PERCENT,
+                                         *(int32_t*)arg & PMUCTL_STATUS_CHARGING,
+                                         *(int32_t*)arg & PMUCTL_STATUS_PLUG);
+            break;
     }
     return( true );
 }
 
 bool statusbar_bmactl_event_cb( EventBits_t event, void *arg ) {
+    char stepcounter[16]="";
     /*
      * check if statusbar ready
      */
@@ -450,7 +491,8 @@ bool statusbar_bmactl_event_cb( EventBits_t event, void *arg ) {
     }
 
     switch( event ) {
-        case BMACTL_STEPCOUNTER:    lv_label_set_text( statusbar_stepcounterlabel, (const char *)arg );
+        case BMACTL_STEPCOUNTER:    snprintf( stepcounter, sizeof( stepcounter ), "%d", *(uint32_t *)arg );
+                                    lv_label_set_text( statusbar_stepcounterlabel, stepcounter );
                                     break;
     }
     return( true );

@@ -33,12 +33,14 @@
 #include <BLE2902.h>
 
 #include "blectl.h"
+#include "blestepctl.h"
+#include "blebatctl.h"
 #include "pmu.h"
 #include "powermgm.h"
 #include "callback.h"
-#include "json_psram_allocator.h"
-#include "alloc.h"
-#include "msg_chain.h"
+
+#include "utils/charbuffer.h"
+#include "utils/alloc.h"
 
 #include "gui/statusbar.h"
 
@@ -47,7 +49,7 @@ portMUX_TYPE DRAM_ATTR blectlMux = portMUX_INITIALIZER_UNLOCKED;
 
 blectl_config_t blectl_config;
 blectl_msg_t blectl_msg;
-msg_chain_t *blectl_msg_chain = NULL;
+QueueHandle_t blectl_msg_queue;
 
 callback_t *blectl_callback = NULL;
 
@@ -63,29 +65,24 @@ BLECharacteristic *pTxCharacteristic;
 BLECharacteristic *pRxCharacteristic;
 uint8_t txValue = 0;
 
-BLECharacteristic *pBatteryLevelCharacteristic;
-BLECharacteristic *pBatteryPowerStateCharacteristic;
-
-char *gadgetbridge_msg = NULL;
-uint32_t gadgetbridge_msg_size = 0;
+static CharBuffer gadgetbridge_msg;
 
 class BleCtlServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer, esp_ble_gatts_cb_param_t* param ) {
         pServer->updateConnParams( param->connect.remote_bda, 1450, 1500, 0, 10000 );
-        blectl_set_event( BLECTL_CONNECT );
-        blectl_clear_event( BLECTL_DISCONNECT );
-        blectl_send_event_cb( BLECTL_CONNECT, (void *)"connected" );
-        blectl_msg_chain = msg_chain_delete( blectl_msg_chain );
-        log_i("BLE connected");
-
+        blectl_set_event( BLECTL_AUTHWAIT );
+        blectl_clear_event( BLECTL_DISCONNECT | BLECTL_CONNECT );
+        xQueueReset( blectl_msg_queue );
+        blectl_send_event_cb( BLECTL_AUTHWAIT, (void *)"authwait" );
+        log_i("BLE authwait");
         pServer->getAdvertising()->stop();
     };
 
     void onDisconnect(BLEServer* pServer) {
         blectl_set_event( BLECTL_DISCONNECT );
-        blectl_clear_event( BLECTL_CONNECT );
+        blectl_clear_event( BLECTL_CONNECT | BLECTL_AUTHWAIT );
         blectl_send_event_cb( BLECTL_DISCONNECT, (void *)"disconnected" );
-        blectl_msg_chain = msg_chain_delete( blectl_msg_chain );
+        xQueueReset( blectl_msg_queue );
         blectl_msg.active = false;
         log_i("BLE disconnected");
 
@@ -98,124 +95,98 @@ class BleCtlServerCallbacks: public BLEServerCallbacks {
 
 class BtlCtlSecurity : public BLESecurityCallbacks {
 
-    uint32_t onPassKeyRequest(){
+    uint32_t onPassKeyRequest() {
+        log_i("BLECTL pass key request");
         return 123456;
     }
-    void onPassKeyNotify(uint32_t pass_key){
+    void onPassKeyNotify( uint32_t pass_key ){
         char pin[16]="";
         snprintf( pin, sizeof( pin ), "%06d", pass_key );
         blectl_set_event( BLECTL_PIN_AUTH );
         blectl_send_event_cb( BLECTL_PIN_AUTH, (void *)pin );
-        log_i("Bluetooth Pairing Request\r\nPIN: %s", pin );
+        log_i("BLECTL pairing request, PIN: %s", pin );
     }
-    bool onConfirmPIN(uint32_t pass_key){
+    bool onConfirmPIN( uint32_t pass_key ) {
+        char pin[16]="";
+        snprintf( pin, sizeof( pin ), "%06d", pass_key );
+        log_i("BLECTL confirm PIN: %s", pin );
         return false;
     }
-    bool onSecurityRequest(){
+    bool onSecurityRequest() {
+        log_i("BLECTL security request");
         return true;
     }
 
     void onAuthenticationComplete( esp_ble_auth_cmpl_t cmpl ){
-        log_i("Bluetooth pairing %s", cmpl.success ? "successful" : "unsuccessful");
 
         if( cmpl.success ){
             if ( blectl_get_event( BLECTL_PIN_AUTH ) ) {
+                blectl_clear_event( BLECTL_PIN_AUTH );
                 blectl_send_event_cb( BLECTL_PAIRING_SUCCESS, (void *)"success" );
+                log_i("BLECTL pairing successful");
+                return;
+            }
+            if ( blectl_get_event( BLECTL_AUTHWAIT ) ) {
+                blectl_clear_event( BLECTL_AUTHWAIT | BLECTL_DISCONNECT );
+                blectl_set_event( BLECTL_CONNECT );
+                blectl_send_event_cb( BLECTL_CONNECT, (void *) "connected" );
+                log_i("BLECTL authentication successful, client connected");
+                blectl_send_msg("%c\r\n{}\r\n" );
+                return;
             }
         }
         else {
             if ( blectl_get_event( BLECTL_PIN_AUTH ) ) {
+                blectl_clear_event( BLECTL_PIN_AUTH );
                 blectl_send_event_cb( BLECTL_PAIRING_ABORT, (void *)"abort" );
+                log_i("BLECTL pairing abort");
+                pServer->startAdvertising();
+                return;
             }
-            pServer->startAdvertising();
+            if ( blectl_get_event( BLECTL_AUTHWAIT | BLECTL_CONNECT ) ) {
+                blectl_clear_event( BLECTL_AUTHWAIT | BLECTL_CONNECT );
+                blectl_set_event( BLECTL_DISCONNECT );
+                blectl_send_event_cb( BLECTL_DISCONNECT, (void *) "disconnected" );
+                log_i("BLECTL authentication unsuccessful, client disconnected");
+                pServer->startAdvertising();
+                return;
+            }
         }
-
-        if ( blectl_get_event( BLECTL_PIN_AUTH ) ) {
-            blectl_clear_event( BLECTL_PIN_AUTH );
-        }
+        log_e("authentication not handle. reason: %02x", cmpl.fail_reason );
     }
 };
-
-void blectl_add_char_to_gadgetbridge_msg( char msg_char ) {
-    gadgetbridge_msg_size++;
-
-    if ( gadgetbridge_msg == NULL ) {
-        gadgetbridge_msg = (char *)CALLOC( gadgetbridge_msg_size + 1, 1 );
-        if ( gadgetbridge_msg == NULL ) {
-            log_e("gadgetbridge_msg alloc fail");
-            while(true);
-        }
-    }
-    else {
-        char *new_gadgetbridge_msg = NULL;
-        new_gadgetbridge_msg = (char *)REALLOC( gadgetbridge_msg, gadgetbridge_msg_size + 1 );
-        if ( new_gadgetbridge_msg == NULL ) {
-            log_e("gadgetbridge_msg realloc fail");
-            while(true);            
-        }
-        gadgetbridge_msg = new_gadgetbridge_msg;
-    }
-    gadgetbridge_msg[ gadgetbridge_msg_size - 1 ] = msg_char;
-    gadgetbridge_msg[ gadgetbridge_msg_size ] = '\0';
-}
-
-void blectl_delete_gadgetbridge_msg ( void ) {
-    gadgetbridge_msg_size = 0;
-
-    if ( gadgetbridge_msg == NULL ) {
-        gadgetbridge_msg = (char *)CALLOC( gadgetbridge_msg_size + 1, 1 );
-        if ( gadgetbridge_msg == NULL ) {
-            log_e("gadgetbridge_msg alloc fail");
-            while(true);
-        }
-    }
-    else {
-        char *new_gadgetbridge_msg = NULL;
-        new_gadgetbridge_msg = (char *)REALLOC( gadgetbridge_msg, gadgetbridge_msg_size + 1 );
-        if ( new_gadgetbridge_msg == NULL ) {
-            log_e("gadgetbridge_msg realloc fail");
-            while(true);            
-        }
-        gadgetbridge_msg = new_gadgetbridge_msg;
-    }
-    gadgetbridge_msg[ gadgetbridge_msg_size ] = '\0';
-}
 
 class BleCtlCallbacks : public BLECharacteristicCallbacks
 {
     void onWrite( BLECharacteristic *pCharacteristic ) {
-        char *msg = (char *)CALLOC( pCharacteristic->getValue().length() + 1, 1 );
-        if ( msg == NULL ) {
-            log_e("calloc fail");
-            return;
-        }
-        else {
-            strlcpy( msg, pCharacteristic->getValue().c_str(), pCharacteristic->getValue().length() + 1 );
-            for ( int i = 0 ; i < pCharacteristic->getValue().length(); i++ ) {
-                switch( msg[ i ] ) {
-                    case EndofText:         blectl_delete_gadgetbridge_msg();
-                                            log_i("attention, new link establish");
-                                            blectl_send_event_cb( BLECTL_CONNECT, (void *)"connected" );
-                                            break;
-                    case DataLinkEscape:    blectl_delete_gadgetbridge_msg();
-                                            log_i("attention, new message");
-                                            break;
-                    case LineFeed:          log_i("message complete, fire BLTCTL_MSG callback");
-                                            if( gadgetbridge_msg[ 0 ] == 'G' && gadgetbridge_msg[ 1 ] == 'B' ) {
+        size_t msgLen = pCharacteristic->getValue().length();
+        const char *msg = pCharacteristic->getValue().c_str();
+
+        log_i("receive %d bytes msg chunk", msgLen );
+
+        for ( int i = 0 ; i < msgLen ; i++ ) {
+            switch( msg[ i ] ) {
+                case EndofText:         gadgetbridge_msg.clear();
+                                        log_i("attention, new link establish");
+                                        blectl_send_event_cb( BLECTL_CONNECT, (void *)"connected" );
+                                        break;
+                case DataLinkEscape:    gadgetbridge_msg.clear();
+                                        log_i("attention, new message");
+                                        break;
+                case LineFeed:          {
+                                            log_i("attention, message complete");
+                                            const char *gbmsg = gadgetbridge_msg.c_str();
+                                            if( gbmsg[ 0 ] == 'G' && gbmsg[ 1 ] == 'B' ) {
                                                 log_i("gadgetbridge message identified, cut down to json");
-                                                gadgetbridge_msg[ gadgetbridge_msg_size - 1 ] = '\0';
-                                                log_i("msg: %s", &gadgetbridge_msg[ 3 ] );
-                                                blectl_send_event_cb( BLECTL_MSG, (void *)&gadgetbridge_msg[ 3 ] );
+                                                gadgetbridge_msg.erase( gadgetbridge_msg.length() - 1 );
+                                                gbmsg += 3;
                                             }
-                                            else {
-                                                log_i("msg: %s", gadgetbridge_msg );
-                                                blectl_send_event_cb( BLECTL_MSG, (void *)&gadgetbridge_msg[ 0 ] );
-                                            }
+                                            log_i("msg: %s", gbmsg );
+                                            blectl_send_event_cb( BLECTL_MSG, (void *)gbmsg );
                                             break;
-                    default:                blectl_add_char_to_gadgetbridge_msg( msg[ i ] );
-                }
+                                        }
+                default:                gadgetbridge_msg.append( msg[ i ] );
             }
-            free(msg);
         }
     }
 
@@ -239,6 +210,12 @@ void blectl_setup( void ) {
     blectl_msg.msg = NULL;
     blectl_msg.msglen = 0;
     blectl_msg.msgpos = 0;
+
+    blectl_msg_queue = xQueueCreate( 5, sizeof( char * ) );
+    if ( blectl_msg_queue == NULL ) {
+        log_e("Failed to allocate msg queue");
+        while(true);
+    }
 
     // Create the BLE Device
     // Name needs to match filter in Gadgetbridge's banglejs getSupportedType() function.
@@ -307,20 +284,9 @@ void blectl_setup( void ) {
     // Start advertising battery service
     pServer->getAdvertising()->addServiceUUID( pDeviceInformationService->getUUID() );
 
-    // Create battery service
-    BLEService *pBatteryService = pServer->createService(BATTERY_SERVICE_UUID);
-    // Create a BLE battery service, batttery level Characteristic - 
-    pBatteryLevelCharacteristic = pBatteryService->createCharacteristic( BATTERY_LEVEL_CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
-    pBatteryLevelCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
-    pBatteryLevelCharacteristic->addDescriptor( new BLEDescriptor(BATTERY_LEVEL_DESCRIPTOR_UUID) );
-    pBatteryLevelCharacteristic->addDescriptor( new BLE2902() );
-    pBatteryPowerStateCharacteristic = pBatteryService->createCharacteristic( BATTERY_POWER_STATE_CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
-    pBatteryPowerStateCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
-    pBatteryPowerStateCharacteristic->addDescriptor( new BLE2902() );
-    // Start battery service
-    pBatteryService->start();
-    // Start advertising battery service
-    pServer->getAdvertising()->addServiceUUID( pBatteryService->getUUID() );
+    blebatctl_setup(pServer);
+
+    blestepctl_setup();
 
     // Slow advertising interval for battery life
     pServer->getAdvertising()->setMinInterval( 700 );
@@ -331,7 +297,6 @@ void blectl_setup( void ) {
     }
     powermgm_register_cb( POWERMGM_SILENCE_WAKEUP | POWERMGM_STANDBY | POWERMGM_WAKEUP, blectl_powermgm_event_cb, "powermgm blectl" );
     powermgm_register_loop_cb( POWERMGM_SILENCE_WAKEUP | POWERMGM_STANDBY | POWERMGM_WAKEUP, blectl_powermgm_loop_cb, "powermgm blectl loop" );
-    pmu_register_cb( PMUCTL_BATTERY_PERCENT | PMUCTL_CHARGING | PMUCTL_VBUS_PLUG, blectl_pmu_event_cb, "pmu blectl battery");
 }
 
 bool blectl_powermgm_event_cb( EventBits_t event, void *arg ) {
@@ -401,17 +366,17 @@ bool blectl_send_event_cb( EventBits_t event, void *arg ) {
 
 void blectl_set_enable_on_standby( bool enable_on_standby ) {        
     blectl_config.enable_on_standby = enable_on_standby;
-    blectl_save_config();
+    blectl_config.save();
 }
 
 void blectl_set_show_notification( bool show_notification ) {        
     blectl_config.show_notification = show_notification;
-    blectl_save_config();
+    blectl_config.save();
 }
 
 void blectl_set_advertising( bool advertising ) {  
     blectl_config.advertising = advertising;
-    blectl_save_config();
+    blectl_config.save();
     if ( blectl_get_event( BLECTL_CONNECT ) )
         return;
 
@@ -441,7 +406,7 @@ void blectl_set_txpower( int32_t txpower ) {
         default:            BLEDevice::setPower( ESP_PWR_LVL_N9 );
                             break;
     }
-    blectl_save_config();
+    blectl_config.save();
 }
 
 void blectl_set_autoon( bool autoon ) {
@@ -453,7 +418,7 @@ void blectl_set_autoon( bool autoon ) {
     else {
         blectl_off();
     }
-    blectl_save_config();
+    blectl_config.save();
 }
 
 int32_t blectl_get_txpower( void ) {
@@ -477,97 +442,43 @@ bool blectl_get_advertising( void ) {
 }
 
 void blectl_save_config( void ) {
-    fs::File file = SPIFFS.open( BLECTL_JSON_COFIG_FILE, FILE_WRITE );
-
-    if (!file) {
-        log_e("Can't open file: %s!", BLECTL_JSON_COFIG_FILE );
-    }
-    else {
-        SpiRamJsonDocument doc( 1000 );
-
-        doc["autoon"] = blectl_config.autoon;
-        doc["advertising"] = blectl_config.advertising;
-        doc["enable_on_standby"] = blectl_config.enable_on_standby;
-        doc["tx_power"] = blectl_config.txpower;
-        doc["show_notification"] = blectl_config.show_notification;
-
-        if ( serializeJsonPretty( doc, file ) == 0) {
-            log_e("Failed to write config file");
-        }
-        doc.clear();
-    }
-    file.close();
+    blectl_config.save();
 }
 
 void blectl_read_config( void ) {
-    fs::File file = SPIFFS.open( BLECTL_JSON_COFIG_FILE, FILE_READ );
+    blectl_config.load();
+}
 
-    if (!file) {
-        log_e("Can't open file: %s!", BLECTL_JSON_COFIG_FILE );
-    }
-    else {
-        int filesize = file.size();
-        SpiRamJsonDocument doc( filesize * 2 );
-
-        DeserializationError error = deserializeJson( doc, file );
-        if ( error ) {
-            log_e("blectl deserializeJson() failed: %s", error.c_str() );
+bool blectl_send_msg( const char *msg ) {
+    if ( blectl_get_event( BLECTL_CONNECT | BLECTL_AUTHWAIT ) ) {
+        /*
+         * Duplicate message
+         */
+        size_t len = strlen( msg );
+        char *buff = (char *)CALLOC( len + 1, 1 );
+        if ( buff == NULL ) {
+            log_e("buff calloc failed");
+            while( true );
         }
-        else {                
-            blectl_config.autoon = doc["autoon"] | true;
-            blectl_config.advertising = doc["advertising"] | true;
-            blectl_config.enable_on_standby = doc["enable_on_standby"] | false;
-            blectl_config.txpower = doc["tx_power"] | 1;
-            blectl_config.show_notification = doc["show_notification"] | true;
-        }        
-        doc.clear();
-    }
-    file.close();
-}
-
-bool blectl_pmu_event_cb( EventBits_t event, void *arg ) {
-    static int32_t percent = 0;
-    static bool charging = false;
-    static bool plug = false;
-
-    switch( event ) {
-        case PMUCTL_BATTERY_PERCENT:
-            percent = *(int32_t*)arg;
-            if ( blectl_get_event( BLECTL_CONNECT ) ) {
-                blectl_update_battery( percent, charging, plug );
-            }
-            break;
-        case PMUCTL_CHARGING:
-            charging = *(bool*)arg;
-            break;
-        case PMUCTL_VBUS_PLUG:
-            plug = *(bool*)arg;
-            break;
-    }
-    return( true );
-}
-
-void blectl_update_battery( int32_t percent, bool charging, bool plug ) {
-    uint8_t level = (uint8_t)percent;
-    if (level > 100) level = 100;
-
-    pBatteryLevelCharacteristic->setValue(&level, 1);
-    pBatteryLevelCharacteristic->notify();
-
-    uint8_t batteryPowerState = BATTERY_POWER_STATE_BATTERY_PRESENT | 
-        (plug ? BATTERY_POWER_STATE_DISCHARGE_NOT_DISCHARING : BATTERY_POWER_STATE_DISCHARGE_DISCHARING) |
-        (charging? BATTERY_POWER_STATE_CHARGE_CHARING : BATTERY_POWER_STATE_CHARGE_NOT_CHARING) | 
-        (percent > 10 ? BATTERY_POWER_STATE_LEVEL_GOOD : BATTERY_POWER_STATE_LEVEL_CRITICALLY_LOW );
-    pBatteryPowerStateCharacteristic->setValue(&batteryPowerState, 1);
-    pBatteryPowerStateCharacteristic->notify();
-}
-
-void blectl_send_msg( char *msg ) {
-    if ( blectl_get_event( BLECTL_CONNECT ) ) {
-        blectl_msg_chain = msg_chain_add_msg( blectl_msg_chain, msg );
+        strcpy( buff, msg );
+        /*
+         * Send message
+         */
+        BaseType_t ret;
+        ret = xQueueSend( blectl_msg_queue, &buff, 0);
+        /*
+         * buff will be freeed on the receive part
+         */
+        buff = NULL;
+        if ( ret != pdTRUE ) {
+            log_e("fail to send msg");
+            return false;
+        }
+        return true;
     }
     else {
         log_e("msg can't send while bluetooth is not connected");
+        return false;
     }
 }
 
@@ -615,74 +526,68 @@ void blectl_off( void ) {
     blectl_send_event_cb( BLECTL_OFF, (void *)NULL );
 }
 
+static void blectl_send_chunk ( int32_t len ) {
+    // Send
+    pTxCharacteristic->setValue( (unsigned char*)&blectl_msg.msg[ blectl_msg.msgpos ], len );
+    pTxCharacteristic->notify();
+
+    char chunk_msg[ 64 ] = "";
+    for( int i = 0 ; i < len ; i++ ) {
+        if ( blectl_msg.msg[ blectl_msg.msgpos + i ] > 0x1F ) {
+            chunk_msg[ i ] = blectl_msg.msg[ blectl_msg.msgpos + i ];
+        }
+        else {
+            chunk_msg[ i ] = '?';
+        }
+    }
+    chunk_msg[ len ] = '\0';
+    log_d("send %2dbyte [ \"%s\" ] chunk", len, chunk_msg );
+}
+
 void blectl_loop ( void ) {
     static uint64_t nextmillis = 0;
-    char chunk_msg[ 64 ] = "";
 
     if ( !blectl_get_event( BLECTL_CONNECT ) ) {
         return;
     }
 
-    if ( !blectl_msg.active && msg_chain_get_entrys( blectl_msg_chain ) > 0 ) {
-        blectl_send_next_msg( (char *)msg_chain_get_msg_entry( blectl_msg_chain, 0 ) );
-        msg_chain_delete_msg_entry( blectl_msg_chain, 0 );
+    if ( !blectl_msg.active ) {
+        // Retrieve next message
+        char *msg;
+        BaseType_t available;
+        available = xQueueReceive( blectl_msg_queue, &msg, 0);
+        if ( available == pdTRUE ) {
+            blectl_send_next_msg( msg );
+            free( msg );
+        }
     }
 
-    if ( nextmillis < millis() ) {
+    if ( blectl_msg.active && nextmillis < millis() ) {
         nextmillis = millis() + BLECTL_CHUNKDELAY;
-        if ( blectl_msg.active ) {
-            if ( blectl_msg.msgpos < blectl_msg.msglen ) {
-                if ( ( blectl_msg.msglen - blectl_msg.msgpos ) > BLECTL_CHUNKSIZE ) {
-                    chunk_msg[ 0 ] ='\0';
-                    for( int i = 0 ; i < BLECTL_CHUNKSIZE ; i++ ) {
-                        char tmp_str[16]="";
-                        if ( blectl_msg.msg[ blectl_msg.msgpos + i ] > 0x1F ) {
-                            snprintf( tmp_str, sizeof( tmp_str ),"%c", blectl_msg.msg[ blectl_msg.msgpos + i ] );
-                        }
-                        else {
-                            snprintf( tmp_str, sizeof( tmp_str ),"?" );
-                        }
-                        strcat( chunk_msg, tmp_str );
-                    }
-                    pTxCharacteristic->setValue( (unsigned char*)&blectl_msg.msg[ blectl_msg.msgpos ], BLECTL_CHUNKSIZE );
-                    pTxCharacteristic->notify();
-                    log_i("send %2dbyte [ \"%s\" ] chunk", BLECTL_CHUNKSIZE, chunk_msg );
-                    blectl_msg.msgpos += BLECTL_CHUNKSIZE;
-                }
-                else if ( ( blectl_msg.msglen - blectl_msg.msgpos ) > 0 ) {
-                    chunk_msg[ 0 ] ='\0';
-                    for( int i = 0 ; i < ( blectl_msg.msglen - blectl_msg.msgpos ) ; i++ ) {
-                        char tmp_str[16]="";
-                        if ( blectl_msg.msg[ blectl_msg.msgpos + i ] > 0x1F ) {
-                            snprintf( tmp_str, sizeof( tmp_str ),"%c", blectl_msg.msg[ blectl_msg.msgpos + i ] );
-                        }
-                        else {
-                            snprintf( tmp_str, sizeof( tmp_str ),"?" );
-                        }
-                        strcat( chunk_msg, tmp_str );
-                    }
-                    
-                    pTxCharacteristic->setValue( (unsigned char*)&blectl_msg.msg[ blectl_msg.msgpos ], blectl_msg.msglen - blectl_msg.msgpos );
-                    pTxCharacteristic->notify();
-                    log_i("send %2dbyte [ \"%s\" ] chunk", blectl_msg.msglen - blectl_msg.msgpos, chunk_msg );
-                    blectl_send_event_cb( BLECTL_MSG_SEND_SUCCESS , (char*)"msg send success" );
-                    blectl_msg.active = false;
-                    blectl_msg.msglen = 0;
-                    blectl_msg.msgpos = 0;
-                }
-                else {
-                    log_e("malformed chunksize");
-                    blectl_send_event_cb( BLECTL_MSG_SEND_ABORT , (char*)"msg send abort, malformed chunksize" );
-                    blectl_msg.active = false;
-                    blectl_msg.msglen = 0;
-                    blectl_msg.msgpos = 0;
-                }
+        if ( blectl_msg.msgpos < blectl_msg.msglen ) {
+            if ( ( blectl_msg.msglen - blectl_msg.msgpos ) > BLECTL_CHUNKSIZE ) {
+                blectl_send_chunk ( BLECTL_CHUNKSIZE );
+                blectl_msg.msgpos += BLECTL_CHUNKSIZE;
             }
-            else {
+            else if ( ( blectl_msg.msglen - blectl_msg.msgpos ) > 0 ) {
+                blectl_send_chunk ( blectl_msg.msglen - blectl_msg.msgpos );
+                blectl_send_event_cb( BLECTL_MSG_SEND_SUCCESS , (char*)"msg send success" );
                 blectl_msg.active = false;
                 blectl_msg.msglen = 0;
                 blectl_msg.msgpos = 0;
             }
+            else {
+                log_e("malformed chunksize");
+                blectl_send_event_cb( BLECTL_MSG_SEND_ABORT , (char*)"msg send abort, malformed chunksize" );
+                blectl_msg.active = false;
+                blectl_msg.msglen = 0;
+                blectl_msg.msgpos = 0;
+            }
+        }
+        else {
+            blectl_msg.active = false;
+            blectl_msg.msglen = 0;
+            blectl_msg.msgpos = 0;
         }
     }
 }
