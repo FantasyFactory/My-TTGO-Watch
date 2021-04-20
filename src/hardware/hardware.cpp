@@ -68,6 +68,10 @@ void hardware_setup( void ) {
     fakegps_setup();
     
     splash_screen_stage_update( "init gui", 80 );
+    delay(500);
+    splash_screen_stage_update( "ma che oooohh !", 90 );
+    delay(500);
+
     splash_screen_stage_finish();
 }
 
@@ -82,6 +86,8 @@ void hardware_post_setup( void ) {
     powermgm_set_event( POWERMGM_WAKEUP );
 
     display_set_brightness( display_get_brightness() );
+
+    sound_play_spiffs_mp3( "/mosconi_macheoh.mp3" );
 
     delay(500);
 

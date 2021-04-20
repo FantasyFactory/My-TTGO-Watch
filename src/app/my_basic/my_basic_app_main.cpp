@@ -29,6 +29,7 @@
 #include "gui/mainbar/main_tile/main_tile.h"
 #include "gui/mainbar/mainbar.h"
 #include "gui/statusbar.h"
+#include "gui/widget_styles.h"
 
 #include "bas_arduino.h"
 #include "file_module.h"
@@ -62,7 +63,7 @@ static lv_style_t my_basic_output_style;
 void my_basic_app_main_setup( uint32_t tile_num ) {
 
     my_basic_app_main_tile = mainbar_get_tile_obj( tile_num );
-    lv_style_copy( &my_basic_app_main_style, mainbar_get_style() );
+    lv_style_copy( &my_basic_app_main_style, ws_get_mainbar_style() );
 
     lv_obj_t * exit_btn = lv_imgbtn_create( my_basic_app_main_tile, NULL);
     lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_RELEASED, &exit_32px);
@@ -86,7 +87,7 @@ void my_basic_app_main_setup( uint32_t tile_num ) {
     /************ my_basic_cont main container (for lvgl integration) *********/
     lv_obj_t *my_basic_cont = lv_obj_create( my_basic_app_main_tile, NULL );
     lv_obj_set_size( my_basic_cont, lv_disp_get_hor_res( NULL ) , 200);
-    lv_style_copy( &my_basic_cont_main_style, mainbar_get_style() );
+    lv_style_copy( &my_basic_cont_main_style, ws_get_mainbar_style() );
     lv_style_set_bg_color( &my_basic_cont_main_style, LV_OBJ_PART_MAIN, LV_COLOR_BLUE);
     lv_obj_add_style( my_basic_cont, LV_OBJ_PART_MAIN, &my_basic_cont_main_style  );
     lv_obj_align( my_basic_cont, my_basic_app_main_tile, LV_ALIGN_IN_TOP_MID, 0, 10 );

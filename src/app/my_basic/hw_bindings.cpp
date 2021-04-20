@@ -263,7 +263,7 @@ int bas_peek(struct mb_interpreter_t* s, void** l) {
 int bas_peekas(struct mb_interpreter_t* s, void** l) {
   int result = MB_FUNC_OK;
   int64_t vlen = 0;
-  void * n = 0;
+  int64_t * n = 0;
   int64_t idx;
 
   int64_t r = 0;
@@ -273,7 +273,7 @@ int bas_peekas(struct mb_interpreter_t* s, void** l) {
   mb_value_t arg;
   mb_make_nil(arg);
   mb_check(mb_pop_value(s, l, &arg));
-  mb_check(mb_get_ref_value(s, l, arg, &n));
+  //mb_check(mb_get_ref_value(s, l, arg, &n));
 
   mb_check(mb_pop_int(s, l, &idx));
   mb_check(mb_pop_int(s, l, &vlen));
@@ -324,7 +324,7 @@ int bas_poke(struct mb_interpreter_t* s, void** l) {
 int bas_pokeas(struct mb_interpreter_t* s, void** l) {
   int result = MB_FUNC_OK;
   int64_t vlen = 0;
-  void * n = 0;
+  int64_t * n = 0;
   int64_t idx;
 
   int64_t val;
@@ -335,7 +335,7 @@ int bas_pokeas(struct mb_interpreter_t* s, void** l) {
   mb_value_t arg;
   mb_make_nil(arg);
   mb_check(mb_pop_value(s, l, &arg));
-  mb_check(mb_get_ref_value(s, l, arg, &n));
+  //mb_check(mb_get_ref_value(s, l, arg, &n));
 
   mb_check(mb_pop_int(s, l, &idx));
   mb_check(mb_pop_int(s, l, &vlen));

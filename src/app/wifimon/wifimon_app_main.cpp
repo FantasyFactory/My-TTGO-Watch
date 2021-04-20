@@ -34,6 +34,7 @@
 #include "gui/mainbar/mainbar.h"
 #include "gui/statusbar.h"
 #include "gui/keyboard.h"
+#include "gui/widget_styles.h"
 
 lv_obj_t *wifimon_app_main_tile = NULL;
 lv_obj_t * chart;
@@ -108,7 +109,7 @@ static void event_handler(lv_obj_t * obj, lv_event_t event)
 void wifimon_app_main_setup( uint32_t tile_num ) {
 
     wifimon_app_main_tile = mainbar_get_tile_obj( tile_num );
-    lv_style_copy( &wifimon_app_main_style, mainbar_get_style() );
+    lv_style_copy( &wifimon_app_main_style, ws_get_mainbar_style() );
 
     lv_obj_t * exit_btn = lv_imgbtn_create( wifimon_app_main_tile, NULL);
     lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_RELEASED, &exit_32px);

@@ -28,6 +28,7 @@
 #include "gui/mainbar/mainbar.h"
 #include "gui/statusbar.h"
 #include "gui/keyboard.h"
+#include "gui/widget_styles.h"
 
 lv_obj_t *image_ticker_setup_tile = NULL;
 lv_style_t image_ticker_setup_style;
@@ -47,7 +48,7 @@ void image_ticker_setup_setup( uint32_t tile_num ) {
     image_ticker_config_t * image_ticker_config = image_ticker_get_config();
 
     image_ticker_setup_tile = mainbar_get_tile_obj( tile_num );
-    lv_style_copy( &image_ticker_setup_style, mainbar_get_style() );
+    lv_style_copy( &image_ticker_setup_style, ws_get_mainbar_style() );
 
     lv_style_set_bg_color( &image_ticker_setup_style, LV_OBJ_PART_MAIN, LV_COLOR_GRAY);
     lv_style_set_bg_opa( &image_ticker_setup_style, LV_OBJ_PART_MAIN, LV_OPA_100);
@@ -99,7 +100,7 @@ void image_ticker_setup_setup( uint32_t tile_num ) {
 
     image_ticker_autosync_switch = lv_switch_create( image_ticker_autosync_switch_cont, NULL );
     lv_obj_add_protect( image_ticker_autosync_switch, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( image_ticker_autosync_switch, LV_SWITCH_PART_INDIC, mainbar_get_switch_style() );
+    lv_obj_add_style( image_ticker_autosync_switch, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
     image_ticker_config->autosync ? lv_switch_on( image_ticker_autosync_switch, LV_ANIM_ON ) : lv_switch_off( image_ticker_autosync_switch, LV_ANIM_ON );
     lv_obj_align( image_ticker_autosync_switch, image_ticker_autosync_switch_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0 );
     lv_obj_set_event_cb( image_ticker_autosync_switch, image_ticker_autosync_switch_event_cb );
@@ -111,7 +112,7 @@ void image_ticker_setup_setup( uint32_t tile_num ) {
 
     lv_obj_t *image_ticker_reset_url_btn = lv_btn_create( image_ticker_setup_tile, NULL);
     lv_obj_set_event_cb( image_ticker_reset_url_btn, image_ticker_reset_url_event_cb );
-    lv_obj_add_style( image_ticker_reset_url_btn, LV_BTN_PART_MAIN, mainbar_get_button_style() );
+    lv_obj_add_style( image_ticker_reset_url_btn, LV_BTN_PART_MAIN, ws_get_button_style() );
     lv_obj_align( image_ticker_reset_url_btn, image_ticker_url_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 60);
     lv_obj_t *image_ticker_reset_url_label = lv_label_create( image_ticker_reset_url_btn, NULL );
     lv_label_set_text( image_ticker_reset_url_label, "set default url");
