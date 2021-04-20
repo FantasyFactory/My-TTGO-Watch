@@ -237,6 +237,6 @@ bool DoBasic( void ) {
     log_i("Free heap: %d\r\n", ESP.getFreeHeap());
     log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
     free (buffer);
-
+  return true;
 }
 
