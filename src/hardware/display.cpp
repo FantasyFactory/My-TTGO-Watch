@@ -131,6 +131,12 @@ void display_standby( void ) {
     ttgo->closeBL();
     brightness = 0;
     dest_brightness = 0;
+    #if defined( LILYGO_WATCH_2020_V2 )
+        ttgo->power->setLDO2Voltage( 3300 );
+        ttgo->power->setLDO3Voltage( 3300 );
+        ttgo->power->setPowerOutPut( AXP202_LDO2, false );
+        ttgo->power->setPowerOutPut( AXP202_LDO3, false );
+    #endif
 }
 
 void display_wakeup( bool silence ) {
@@ -140,6 +146,12 @@ void display_wakeup( bool silence ) {
      */
     if ( silence ) {
         log_i("go silence wakeup");
+        #if defined( LILYGO_WATCH_2020_V2 )
+            ttgo->power->setLDO2Voltage( 3300 );
+            ttgo->power->setLDO3Voltage( 3300 );
+            ttgo->power->setPowerOutPut( AXP202_LDO2, true );
+            ttgo->power->setPowerOutPut( AXP202_LDO3, true );
+        #endif
         ttgo->openBL();
         ttgo->displayWakeup();
         ttgo->bl->adjust( 0 );
@@ -148,6 +160,12 @@ void display_wakeup( bool silence ) {
     }
     else {
         log_i("go wakeup");
+        #if defined( LILYGO_WATCH_2020_V2 )
+            ttgo->power->setLDO2Voltage( 3300 );
+            ttgo->power->setLDO3Voltage( 3300 );
+            ttgo->power->setPowerOutPut( AXP202_LDO2, true );
+            ttgo->power->setPowerOutPut( AXP202_LDO3, true );
+        #endif
         ttgo->openBL();
         ttgo->displayWakeup();
         ttgo->bl->adjust( 0 );

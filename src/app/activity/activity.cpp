@@ -1,9 +1,26 @@
+
+/*
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
 #include "config.h"
 #include <TTGO.h>
 #include "quickglui/quickglui.h"
 
 #include "activity.h"
 #include "gui/mainbar/mainbar.h"
+#include "gui/widget_styles.h"
 #include "hardware/bma.h"
 #include "hardware/blestepctl.h"
 #include "hardware/motor.h"
@@ -84,10 +101,10 @@ void activity_app_setup() {
 
 void build_main_page()
 {
-    big = Style::Create(mainbar_get_style(), true);
+    big = Style::Create(ws_get_mainbar_style(), true);
     big.textFont(&Ubuntu_32px)
       .textOpacity(LV_OPA_80);
-    small = Style::Create(mainbar_get_style(), true);
+    small = Style::Create(ws_get_mainbar_style(), true);
     small.textFont(&Ubuntu_16px)
       .textOpacity(LV_OPA_80);
 
@@ -95,8 +112,8 @@ void build_main_page()
 
     arcStepcounter = Arc(&screen, 0, 360);
     arcStepcounter.start(0).end(0).rotation(90)
-        .style(mainbar_get_arc_style(), LV_ARC_PART_INDIC, false )
-        .style(mainbar_get_arc_bg_style(), LV_ARC_PART_BG, false )
+        .style(ws_get_arc_style(), LV_ARC_PART_INDIC, false )
+        .style(ws_get_arc_bg_style(), LV_ARC_PART_BG, false )
         .size(120, 120)
         .alignInParentBottomLeft(0, -42);
 
@@ -112,8 +129,8 @@ void build_main_page()
     
     arcDistance = Arc(&screen, 0, 360);
     arcDistance.start(0).end(0).rotation(90)
-        .style(mainbar_get_arc_style(), LV_ARC_PART_INDIC, false )
-        .style(mainbar_get_arc_bg_style(), LV_ARC_PART_BG, false )
+        .style(ws_get_arc_style(), LV_ARC_PART_INDIC, false )
+        .style(ws_get_arc_bg_style(), LV_ARC_PART_BG, false )
         .size(120, 120)
         .alignInParentBottomRight(0, -42);
 

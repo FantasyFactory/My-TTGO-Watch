@@ -25,13 +25,13 @@
 #include "gui/mainbar/mainbar.h"
 #include "gui/statusbar.h"
 #include "gui/sound/piep.h"
+#include "gui/widget_factory.h"
+#include "gui/widget_styles.h"
 #include "hardware/display.h"
 #include "hardware/motor.h"
 #include "hardware/rtcctl.h"
 #include "hardware/sound.h"
 #include "hardware/timesync.h"
-#include "widget_factory.h"
-#include "widget_styles.h"
 
 #define BEEP_TO_VIBE_DELAY 2
 #define BEEP_OFTEN_DELAY 5
@@ -115,13 +115,13 @@ static void alarm_task_function(lv_task_t * task){
     }
     else{
         display_set_brightness(brightness);
-        mainbar_jump_to_maintile( LV_ANIM_OFF );
+        mainbar_jump_back();
     }
 }
 
 void alarm_in_progress_start_alarm(){
-    statusbar_hide( true );
     mainbar_jump_to_tilenumber( tile_num, LV_ANIM_OFF );
+    statusbar_hide( true );
 
     lv_label_set_text(label, alarm_clock_get_clock_label(false));
 
@@ -142,7 +142,6 @@ void alarm_in_progress_tile_setup( void ) {
     tile_num = mainbar_add_app_tile( 1, 1, "alarm in progress" );
     tile = mainbar_get_tile_obj( tile_num );
 
-    lv_style_init( &popup_style );
     lv_style_copy( &popup_style, ws_get_popup_style());
     lv_obj_add_style( tile, LV_OBJ_PART_MAIN, &popup_style );
     lv_style_set_bg_opa(&popup_style, LV_OBJ_PART_MAIN, LV_OPA_10);
@@ -158,7 +157,6 @@ void alarm_in_progress_tile_setup( void ) {
     lv_obj_add_style(cancel_btm, LV_OBJ_PART_MAIN, &cancel_btn_style);
 
     label = wf_add_label(tile_container, "00:00");
-    lv_style_init( &label_style );
     lv_style_copy( &label_style, ws_get_label_style() );
     lv_style_set_text_color( &label_style, LV_OBJ_PART_MAIN, LV_COLOR_WHITE );
     lv_style_set_text_font( &label_style, LV_STATE_DEFAULT, &Ubuntu_72px);

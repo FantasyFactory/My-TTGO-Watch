@@ -208,39 +208,44 @@ int32_t timesync_get_timezone( void ) {
     return( timesync_config.timezone );
 }
 
-void timesync_set_timezone( int32_t timezone ) {
-    timesync_config.timezone = timezone;
-    timesync_save_config();
-}
-
 char* timesync_get_timezone_name( void ) {
     return( timesync_config.timezone_name );
-}
-
-void timesync_set_timezone_name( char * timezone_name ) {
-    strlcpy( timesync_config.timezone_name, timezone_name, sizeof( timesync_config.timezone_name ) );
-    timesync_save_config();
 }
 
 char* timesync_get_timezone_rule( void ) {
     return( timesync_config.timezone_rule );
 }
 
+bool timesync_get_24hr(void) {
+    return (timesync_config.use_24hr_clock);
+}
+
+void timesync_set_timezone( int32_t timezone ) {
+    timesync_config.timezone = timezone;
+    timesyncToSystem();
+    timesync_send_event_cb( TIME_SYNC_UPDATE, (void *)NULL );
+    timesync_save_config();
+}
+
+void timesync_set_timezone_name( char * timezone_name ) {
+    strlcpy( timesync_config.timezone_name, timezone_name, sizeof( timesync_config.timezone_name ) );
+    timesyncToSystem();
+    timesync_send_event_cb( TIME_SYNC_UPDATE, (void *)NULL );
+    timesync_save_config();
+}
+
 void timesync_set_timezone_rule( const char * timezone_rule ) {
     strlcpy( timesync_config.timezone_rule, timezone_rule, sizeof( timesync_config.timezone_rule ) );
-    setenv("TZ", timesync_config.timezone_rule, 1);
-    tzset();
+    timesyncToSystem();
+    timesync_send_event_cb( TIME_SYNC_UPDATE, (void *)NULL );
     timesync_save_config();
-    timesync_send_event_cb( TIME_SYNC_OK, (void *)NULL );
 }
 
 void timesync_set_24hr( bool use24 ) {
     timesync_config.use_24hr_clock = use24;
+    timesyncToSystem();
+    timesync_send_event_cb( TIME_SYNC_UPDATE, (void *)NULL );
     timesync_save_config();
-}
-
-bool timesync_get_24hr(void) {
-    return (timesync_config.use_24hr_clock);
 }
 
 void timesyncToSystem( void ) {
@@ -260,6 +265,7 @@ void timesyncToRTC( void ) {
     setenv("TZ", timesync_config.timezone_rule, 1);
     tzset();
     timesync_send_event_cb( TIME_SYNC_OK, (void *)NULL );
+    timesync_send_event_cb( TIME_SYNC_UPDATE, (void *)NULL );
 }
 
 void timesync_Task( void * pvParameters ) {
@@ -280,4 +286,59 @@ void timesync_Task( void * pvParameters ) {
     xEventGroupClearBits( time_event_handle, TIME_SYNC_REQUEST );
     log_i("finish time sync task, heap: %d", ESP.getFreeHeap() );
     vTaskDelete( NULL );
+}
+
+void timesync_get_current_timestring( char * buf, size_t buf_len ) {
+    time_t now;
+    struct tm info;
+    /*
+    * copy current time into now and convert it local time info
+    */
+    time( &now );
+    localtime_r( &now, &info );
+
+    int h = info.tm_hour;
+    int m = info.tm_min;
+
+    if ( timesync_get_24hr() ) {
+        snprintf( buf, buf_len, "%02d:%02d", h, m );
+    }
+    else {
+        if (h == 0) h = 12;
+        if (h > 12) h -= 12;
+        snprintf( buf, buf_len, "%d:%02d", h, m );
+    }
+}
+
+void timesync_get_current_datestring( char * buf, size_t buf_len ) {
+    time_t now;
+    struct tm info;
+    /*
+    * copy current time into now and convert it local time info
+    */
+    time( &now );
+    localtime_r( &now, &info );
+
+    strftime( buf, sizeof( buf_len ), "%a %d.%b %Y", &info );
+}
+
+bool timesync_is_between( struct tm start, struct tm end ) {
+    time_t now;
+    struct tm info;
+    /*
+    * copy current time into now and convert it local time info
+    */
+    time( &now );
+    localtime_r( &now, &info );
+
+    // differentiate between silencing over the day or night
+    if (start.tm_hour < end.tm_hour || (start.tm_hour == end.tm_hour && start.tm_min < end.tm_min)) {
+        bool startPassed = info.tm_hour > start.tm_hour || (info.tm_hour == start.tm_hour && info.tm_min > start.tm_min);
+        bool endPassed = info.tm_hour < end.tm_hour || (info.tm_hour == end.tm_hour && info.tm_min < end.tm_min);
+        return startPassed && endPassed;
+    } else {
+        bool startPassed = info.tm_hour > start.tm_hour || (info.tm_hour == start.tm_hour && info.tm_min > start.tm_min);
+        bool endPassed = info.tm_hour < end.tm_hour || (info.tm_hour == end.tm_hour && info.tm_min < end.tm_min);
+        return startPassed || endPassed;
+    }
 }

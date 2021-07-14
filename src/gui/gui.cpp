@@ -22,6 +22,7 @@
 #include "config.h"
 #include <stdio.h>
 #include <TTGO.h>
+#include "gui/lv_fs/lv_fs_spiffs.h"
 
 #include "gui.h"
 #include "statusbar.h"
@@ -44,20 +45,29 @@
 #include "mainbar/setup_tile/bluetooth_settings/bluetooth_settings.h"
 #include "mainbar/setup_tile/sound_settings/sound_settings.h"
 #include "mainbar/setup_tile/gps_settings/gps_settings.h"
+#include "mainbar/setup_tile/sdcard_settings/sdcard_settings.h"
+#include "mainbar/setup_tile/watchface/watchface_manager.h"
+
 
 #include "mainbar/setup_tile/utilities/utilities.h"
 
 #include "hardware/powermgm.h"
 #include "hardware/display.h"
 #include "hardware/motor.h"
+#include "hardware/touch.h"
 
 lv_obj_t *img_bin;
+static volatile bool force_redraw = false;
 
 bool gui_powermgm_event_cb( EventBits_t event, void *arg );
 bool gui_powermgm_loop_event_cb( EventBits_t event, void *arg );
 
-void gui_setup( void )
-{
+void gui_setup( void ) {
+    /**
+     * install lv fs spiffs wrapper
+     * files begin with "P:/foo.bar" -> "/spiffs/foo.bar"
+     */
+    lv_fs_if_spiffs_init();
     /*
      * Create an blank wallpaper
      */
@@ -72,7 +82,7 @@ void gui_setup( void )
      */
     main_tile_setup();
     app_tile_setup();
-    note_tile_setup();
+    //note_tile_setup();
     setup_tile_setup();
     /*
      * add input and status
@@ -91,9 +101,13 @@ void gui_setup( void )
     bluetooth_settings_tile_setup();
     time_settings_tile_setup();
     gps_settings_tile_setup();
+    #if defined( LILYGO_WATCH_HAS_SDCARD )
+        sdcard_settings_tile_setup();
+    #endif
     update_tile_setup();
     utilities_tile_setup();
     sound_settings_tile_setup();
+    watchface_manager_setup();
     /*
      * trigger an activity
      */
@@ -117,10 +131,7 @@ bool gui_powermgm_event_cb( EventBits_t event, void *arg ) {
                                          * get back to maintile if configure and
                                          * stop all LVGL activitys and tasks
                                          */
-                                        log_i("go standby");
-                                        if ( !display_get_block_return_maintile() ) {
-                                            mainbar_jump_to_maintile( LV_ANIM_OFF );
-                                        }                               
+                                        log_i("go standby");                             
                                         ttgo->stopLvglTick();
                                         break;
         case POWERMGM_WAKEUP:           /*
@@ -151,6 +162,11 @@ bool gui_powermgm_event_cb( EventBits_t event, void *arg ) {
                                         break;                                        
     }
     return( true );
+}
+
+
+void gui_force_redraw( bool force ) {
+    force_redraw = force;
 }
 
 void gui_set_background_image ( uint32_t background_image ) {
@@ -205,12 +221,13 @@ void gui_set_background_image ( uint32_t background_image ) {
 
 bool gui_powermgm_loop_event_cb( EventBits_t event, void *arg ) {
     switch ( event ) {
-        case POWERMGM_WAKEUP:           if ( lv_disp_get_inactive_time( NULL ) < display_get_timeout() * 1000 || display_get_timeout() == DISPLAY_MAX_TIMEOUT ) {
+        case POWERMGM_WAKEUP:           if ( lv_disp_get_inactive_time( NULL ) < display_get_timeout() * 1000  || display_get_timeout() == DISPLAY_MAX_TIMEOUT ) {
                                             lv_task_handler();
                                         }
                                         else {
                                             powermgm_set_event( POWERMGM_STANDBY_REQUEST );
                                         }
+
                                         break;
         case POWERMGM_SILENCE_WAKEUP:   if ( lv_disp_get_inactive_time( NULL ) < display_get_timeout() * 1000 ) {
                                             lv_task_handler();
@@ -219,6 +236,11 @@ bool gui_powermgm_loop_event_cb( EventBits_t event, void *arg ) {
                                             powermgm_set_event( POWERMGM_STANDBY_REQUEST );
                                         }
                                         break;
+    }
+    if ( force_redraw ) {
+        force_redraw = !force_redraw;
+        lv_obj_invalidate( lv_scr_act() );
+        // lv_refr_now( NULL );
     }
     return( true );
 }

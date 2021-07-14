@@ -25,6 +25,8 @@
 #include "gui/mainbar/mainbar.h"
 // #include "gui/mainbar/setup_tile/setup_tile.h"
 #include "gui/statusbar.h"
+#include "gui/widget_factory.h"
+#include "gui/widget_styles.h"
 #include "hardware/blectl.h"
 #include "hardware/powermgm.h"
 #include "hardware/motor.h"
@@ -48,21 +50,12 @@ void bluetooth_pairing_tile_setup( void ) {
     bluetooth_pairing_tile_num = mainbar_add_app_tile( 1, 1, "bluetooth pairing" );
     bluetooth_pairing_tile = mainbar_get_tile_obj( bluetooth_pairing_tile_num );
 
-    lv_style_copy( &bluetooth_pairing_style, mainbar_get_style() );
-    lv_style_set_bg_color( &bluetooth_pairing_style, LV_OBJ_PART_MAIN, LV_COLOR_GRAY);
-    lv_style_set_bg_opa( &bluetooth_pairing_style, LV_OBJ_PART_MAIN, LV_OPA_100);
-    lv_style_set_border_width( &bluetooth_pairing_style, LV_OBJ_PART_MAIN, 0);
+    lv_style_copy( &bluetooth_pairing_style, ws_get_setup_tile_style() );
     lv_style_set_text_font( &bluetooth_pairing_style, LV_STATE_DEFAULT, &Ubuntu_32px);
     lv_obj_add_style( bluetooth_pairing_tile, LV_OBJ_PART_MAIN, &bluetooth_pairing_style );
 
-    lv_obj_t *exit_btn = lv_imgbtn_create( bluetooth_pairing_tile, NULL);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_RELEASED, &cancel_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_PRESSED, &cancel_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_RELEASED, &cancel_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_PRESSED, &cancel_32px);
-    lv_obj_add_style( exit_btn, LV_IMGBTN_PART_MAIN, &bluetooth_pairing_style );
-    lv_obj_align( exit_btn, bluetooth_pairing_tile, LV_ALIGN_IN_TOP_LEFT, 10, 10 );
-    lv_obj_set_event_cb( exit_btn, exit_bluetooth_pairing_event_cb );
+    lv_obj_t *bluetooth_pairing_exit_btn = wf_add_image_button( bluetooth_pairing_tile, cancel_32px, exit_bluetooth_pairing_event_cb, &bluetooth_pairing_style);
+    lv_obj_align( bluetooth_pairing_exit_btn, bluetooth_pairing_tile, LV_ALIGN_IN_TOP_LEFT, 10, 10 );
 
     bluetooth_pairing_img = lv_img_create( bluetooth_pairing_tile, NULL );
     lv_img_set_src( bluetooth_pairing_img, &bluetooth_64px );

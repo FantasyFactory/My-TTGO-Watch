@@ -99,6 +99,24 @@
      * @param   expand  true if expand of false if not
      */
     void statusbar_expand( bool expand );
+    /**
+     * @brief force dark mode
+     * 
+     * @param force_dark_mode   true to force dark mode
+     */
+    void statusbar_set_force_dark( bool dark_mode );
+    /**
+     * @brief get force dark mode status
+     * 
+     * @return  true if dark mode forced
+     */
+    bool statusbar_get_force_dark( void );
+    /**
+     * @brief geth the current hidden state
+     * 
+     * @return true if hidden or false is visible
+     */
+    bool statusbar_get_hidden_state( void );
 
 #endif // _STATUSBAR_H
 

@@ -27,6 +27,7 @@
 
 #include "gui/mainbar/mainbar.h"
 #include "gui/mainbar/setup_tile/time_settings/time_settings.h"
+#include "gui/widget_styles.h"
 
 #include "hardware/timesync.h"
 #include "hardware/powermgm.h"
@@ -54,8 +55,8 @@ lv_task_t * main_tile_task;
 
 void main_tile_update_task( lv_task_t * task );
 void main_tile_align_widgets( void );
-void main_tile_format_time( char *, size_t, struct tm * );
 bool main_tile_powermgm_event_cb( EventBits_t event, void *arg );
+bool main_tile_time_update_ebent_cb( EventBits_t event, void *arg );
 
 void main_tile_setup( void ) {
     /*
@@ -68,7 +69,7 @@ void main_tile_setup( void ) {
 
     main_tile_num = mainbar_add_tile( 0, 0, "main tile" );
     main_cont = mainbar_get_tile_obj( main_tile_num );
-    style = mainbar_get_style();
+    style = ws_get_mainbar_style();
 
     lv_style_copy( &timestyle, style);
     lv_style_set_text_font( &timestyle, LV_STATE_DEFAULT, &Ubuntu_72px);
@@ -93,7 +94,7 @@ void main_tile_setup( void ) {
     lv_obj_add_style( datelabel, LV_OBJ_PART_MAIN, &datestyle );
     lv_obj_align( datelabel, clock_cont, LV_ALIGN_IN_BOTTOM_MID, 0, 0 );
 
-    main_tile_update_time();
+    main_tile_update_time( true );
 
     for ( int widget = 0 ; widget < MAX_WIDGET_NUM ; widget++ ) {
         widget_entry[ widget ].active = false;
@@ -131,8 +132,18 @@ void main_tile_setup( void ) {
     main_tile_task = lv_task_create( main_tile_update_task, 500, LV_TASK_PRIO_MID, NULL );
 
     powermgm_register_cb( POWERMGM_WAKEUP , main_tile_powermgm_event_cb, "main tile time update" );
+    timesync_register_cb( TIME_SYNC_UPDATE, main_tile_time_update_ebent_cb, "main tile time sync" );
 
     maintile_init = true;
+}
+
+bool main_tile_time_update_ebent_cb( EventBits_t event, void *arg ) {
+    switch( event ) {
+        case TIME_SYNC_UPDATE:
+            main_tile_update_time( true );
+            break;
+    }
+    return( true );
 }
 
 bool main_tile_powermgm_event_cb( EventBits_t event, void *arg ) {
@@ -146,7 +157,7 @@ bool main_tile_powermgm_event_cb( EventBits_t event, void *arg ) {
 
     switch( event ) {
         case POWERMGM_WAKEUP:
-            main_tile_update_time();
+            main_tile_update_time( true );
             break;
     }
     return( true );
@@ -241,7 +252,7 @@ uint32_t main_tile_get_tile_num( void ) {
     return( main_tile_num );
 }
 
-void main_tile_update_time( void ) {
+void main_tile_update_time( bool force ) {
     /*
      * check if maintile alread initialized
      */
@@ -268,11 +279,11 @@ void main_tile_update_time( void ) {
     }
     /*
      * Time:
-     * only update while time changes
+     * only update while time changes or force ist set
      * Display has a minute resolution
      */
-    if ( last == 0 || info.tm_min != last_info.tm_min || info.tm_hour != last_info.tm_hour ) {
-        main_tile_format_time( time_str, sizeof(time_str), &info );
+    if ( last == 0 || info.tm_min != last_info.tm_min || info.tm_hour != last_info.tm_hour || force ) {
+        timesync_get_current_timestring( time_str, sizeof(time_str) );
         log_d("renew time: %s", time_str );
         lv_label_set_text( timelabel, time_str );
         lv_obj_align( timelabel, clock_cont, LV_ALIGN_CENTER, 0, 0 );
@@ -302,19 +313,5 @@ void main_tile_update_task( lv_task_t * task ) {
         return;
     }
 
-    main_tile_update_time();
-}
-
-void main_tile_format_time( char * buf, size_t buf_len, struct tm * info ) {
-    int h = info->tm_hour;
-    int m = info->tm_min;
-
-    if ( timesync_get_24hr() ) {
-        snprintf( buf, buf_len, "%02d:%02d", h, m );
-    }
-    else {
-        if (h == 0) h = 12;
-        if (h > 12) h -= 12;
-        snprintf( buf, buf_len, "%d:%02d", h, m );
-    }
+    main_tile_update_time( false );
 }

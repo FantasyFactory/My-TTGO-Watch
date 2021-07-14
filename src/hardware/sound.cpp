@@ -26,6 +26,7 @@
 #include "wifictl.h"
 
 #include "sound.h"
+#include "timesync.h"
 #include "callback.h"
 #include "hardware/config/soundconfig.h"
 
@@ -61,6 +62,7 @@ callback_t *sound_callback = NULL;
 bool sound_powermgm_event_cb( EventBits_t event, void *arg );
 bool sound_powermgm_loop_cb( EventBits_t event, void *arg );
 bool sound_send_event_cb( EventBits_t event, void*arg );
+bool sound_is_silenced( void );
 
 void sound_setup( void ) {
     if ( sound_init )
@@ -89,10 +91,16 @@ void sound_setup( void ) {
         /*
         * enable sound
         */
+        #if defined( LILYGO_WATCH_2020_V1 )
+                TTGOClass *ttgo = TTGOClass::getWatch();
+                ttgo->power->setLDO3Mode( AXP202_LDO3_MODE_DCIN );
+                ttgo->power->setLDO3Voltage( 3000 );
+        #endif
         sound_set_enabled( sound_config.enable );
 
         sound_send_event_cb( SOUNDCTL_ENABLED, (void *)&sound_config.enable );
         sound_send_event_cb( SOUNDCTL_VOLUME, (void *)&sound_config.volume );
+
         sound_init = true;
     #elif defined( LILYGO_WATCH_2020_V2 )
         sound_set_enabled( false );
@@ -192,7 +200,7 @@ bool sound_send_event_cb( EventBits_t event, void *arg ) {
 }
 
 /**
- * @brief enable or disable the power output for AXP202_LDO3
+ * @brief enable or disable the power output for AXP202_LDO3 or AXP202_LDO4
  * depending on the current value of: sound_config.enable
  */
 void sound_set_enabled( bool enabled ) {
@@ -206,17 +214,14 @@ void sound_set_enabled( bool enabled ) {
     TTGOClass *ttgo = TTGOClass::getWatch();
 
     if ( enabled ) {
-        ttgo->power->setLDO3Mode( AXP202_LDO3_MODE_DCIN );
-        ttgo->power->setLDO3Voltage( 3000 );
-        ttgo->power->setPowerOutPut( AXP202_LDO3, AXP202_ON );
+        ttgo->enableAudio();
     }
     else {
         if ( sound_init ) {
             if ( mp3->isRunning() ) mp3->stop();
             if ( wav->isRunning() ) wav->stop();
         }
-        ttgo->power->setLDO3Mode( AXP202_LDO3_MODE_DCIN );
-        ttgo->power->setPowerOutPut( AXP202_LDO3, AXP202_OFF );
+        ttgo->disableAudio();
     }
 }
 
@@ -228,7 +233,7 @@ void sound_play_spiffs_mp3( const char *filename ) {
         return;
     }
 
-    if ( sound_config.enable && sound_init ) {
+    if ( sound_config.enable && sound_init && !sound_is_silenced() ) {
         log_i("playing file %s from SPIFFS", filename);
         spliffs_file = new AudioFileSourceSPIFFS(filename);
         id3 = new AudioFileSourceID3(spliffs_file);
@@ -246,7 +251,7 @@ void sound_play_progmem_wav( const void *data, uint32_t len ) {
         return;
     }
 
-    if ( sound_config.enable && sound_init ) {
+    if ( sound_config.enable && sound_init && !sound_is_silenced() ) {
         log_i("playing audio (size %d) from PROGMEM ", len );
         progmem_file = new AudioFileSourcePROGMEM( data, len );
         wav->begin(progmem_file, out);
@@ -263,7 +268,7 @@ void sound_speak( const char *str ) {
         return;
     }
 
-    if ( sound_config.enable ) {
+    if ( sound_config.enable && sound_init && !sound_is_silenced() ) {
         log_i("Speaking text", str);
         is_speaking = true;
         sam->Say(out, str);
@@ -352,4 +357,18 @@ void sound_set_volume_config( uint8_t volume ) {
         out->SetGain(3.5f * ( sound_config.volume / 100.0f ));
     }
     sound_send_event_cb( SOUNDCTL_VOLUME, (void *)&sound_config.volume ); 
+}
+
+
+bool sound_is_silenced( void ) {
+    if (!sound_config.silence_timeframe) return false;
+
+    struct tm start;
+    struct tm end;
+    start.tm_hour = sound_config.silence_start_hour;
+    start.tm_min = sound_config.silence_start_minute;
+    end.tm_hour = sound_config.silence_end_hour;
+    end.tm_min = sound_config.silence_end_minute;
+
+    return timesync_is_between( start, end );
 }

@@ -29,6 +29,8 @@
 #include "gui/mainbar/main_tile/main_tile.h"
 #include "gui/mainbar/mainbar.h"
 #include "gui/statusbar.h"
+#include "gui/widget_factory.h"
+#include "gui/widget_styles.h"
 
 long stopwatch_milliseconds = 0;
 time_t prev_time;
@@ -45,7 +47,6 @@ lv_obj_t *stopwatch_app_main_reset_btn = NULL;
 
 lv_task_t * _stopwatch_app_task;
 
-LV_IMG_DECLARE(exit_32px);
 LV_FONT_DECLARE(Ubuntu_72px);
 
 static void exit_stopwatch_app_main_event_cb( lv_obj_t * obj, lv_event_t event );
@@ -58,7 +59,7 @@ void stopwatch_app_task( lv_task_t * task );
 void stopwatch_app_main_setup( uint32_t tile_num ) {
 
     stopwatch_app_main_tile = mainbar_get_tile_obj( tile_num );
-    lv_style_copy( &stopwatch_app_main_style, mainbar_get_style());
+    lv_style_copy( &stopwatch_app_main_style, ws_get_mainbar_style());
 
     lv_style_copy( &stopwatch_app_main_stopwatchstyle, &stopwatch_app_main_style);
     lv_style_set_text_font( &stopwatch_app_main_stopwatchstyle, LV_STATE_DEFAULT, &Ubuntu_72px);
@@ -103,14 +104,8 @@ void stopwatch_app_main_setup( uint32_t tile_num ) {
     lv_obj_t *stopwatch_app_main_reset_btn_label = lv_label_create(stopwatch_app_main_reset_btn, NULL);
     lv_label_set_text(stopwatch_app_main_reset_btn_label, LV_SYMBOL_EJECT);
 
-    lv_obj_t * exit_btn = lv_imgbtn_create( stopwatch_app_main_tile, NULL);
-    lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_RELEASED, &exit_32px);
-    lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_PRESSED, &exit_32px);
-    lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_CHECKED_RELEASED, &exit_32px);
-    lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_CHECKED_PRESSED, &exit_32px);
-    lv_obj_add_style(exit_btn, LV_IMGBTN_PART_MAIN, &stopwatch_app_main_style );
+    lv_obj_t * exit_btn = wf_add_exit_button( stopwatch_app_main_tile, exit_stopwatch_app_main_event_cb, &stopwatch_app_main_style );
     lv_obj_align(exit_btn, stopwatch_app_main_tile, LV_ALIGN_IN_BOTTOM_LEFT, 10, -10 );
-    lv_obj_set_event_cb( exit_btn, exit_stopwatch_app_main_event_cb );
 
 }
 
@@ -175,7 +170,7 @@ static void reset_stopwatch_app_main_event_cb( lv_obj_t * obj, lv_event_t event 
 
 static void exit_stopwatch_app_main_event_cb( lv_obj_t * obj, lv_event_t event ) {
     switch( event ) {
-        case( LV_EVENT_CLICKED ):       mainbar_jump_to_maintile( LV_ANIM_OFF );
+        case( LV_EVENT_CLICKED ):       mainbar_jump_back();
                                         break;
     }
 }

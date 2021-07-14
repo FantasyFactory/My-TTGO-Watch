@@ -25,11 +25,13 @@
 #include "gui/mainbar/mainbar.h"
 #include "gui/mainbar/setup_tile/setup_tile.h"
 #include "gui/statusbar.h"
+#include "gui/widget_factory.h"
+#include "gui/widget_styles.h"
 #include "hardware/blectl.h"
 #include "hardware/powermgm.h"
 #include "hardware/motor.h"
 
-#include "utils/json_psram_allocator.h"
+#include "quickglui/common/bluejsonrequest.h"
 
 lv_obj_t *bluetooth_call_tile=NULL;
 lv_style_t bluetooth_call_style;
@@ -45,17 +47,14 @@ LV_FONT_DECLARE(Ubuntu_16px);
 
 static void exit_bluetooth_call_event_cb( lv_obj_t * obj, lv_event_t event );
 bool bluetooth_call_event_cb( EventBits_t event, void *arg );
-static void bluetooth_call_msg_pharse( const char* msg );
+static void bluetooth_call_msg_pharse( BluetoothJsonRequest &doc );
 
 void bluetooth_call_tile_setup( void ) {
     // get an app tile and copy mainstyle
     bluetooth_call_tile_num = mainbar_add_app_tile( 1, 1, "bluetooth call" );
     bluetooth_call_tile = mainbar_get_tile_obj( bluetooth_call_tile_num );
 
-    lv_style_copy( &bluetooth_call_style, mainbar_get_style() );
-    lv_style_set_bg_color( &bluetooth_call_style, LV_OBJ_PART_MAIN, LV_COLOR_BLACK );
-    lv_style_set_bg_opa( &bluetooth_call_style, LV_OBJ_PART_MAIN, LV_OPA_100);
-    lv_style_set_border_width( &bluetooth_call_style, LV_OBJ_PART_MAIN, 0);
+    lv_style_copy( &bluetooth_call_style, ws_get_app_opa_style() );
     lv_style_set_text_font( &bluetooth_call_style, LV_STATE_DEFAULT, &Ubuntu_16px);
     lv_obj_add_style( bluetooth_call_tile, LV_OBJ_PART_MAIN, &bluetooth_call_style );
 
@@ -68,22 +67,16 @@ void bluetooth_call_tile_setup( void ) {
     lv_label_set_text( bluetooth_call_number_label, "");
     lv_obj_align( bluetooth_call_number_label, bluetooth_call_img, LV_ALIGN_OUT_BOTTOM_MID, 0, 5 );
 
-    lv_obj_t *exit_btn = lv_imgbtn_create( bluetooth_call_tile, NULL);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_RELEASED, &cancel_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_PRESSED, &cancel_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_RELEASED, &cancel_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_PRESSED, &cancel_32px);
-    lv_obj_add_style( exit_btn, LV_IMGBTN_PART_MAIN, &bluetooth_call_style );
+    lv_obj_t * exit_btn = wf_add_image_button( bluetooth_call_tile, cancel_32px, exit_bluetooth_call_event_cb, &bluetooth_call_style );
     lv_obj_align( exit_btn, bluetooth_call_tile, LV_ALIGN_IN_TOP_RIGHT, -10, 10 );
-    lv_obj_set_event_cb( exit_btn, exit_bluetooth_call_event_cb );
 
-    blectl_register_cb( BLECTL_MSG, bluetooth_call_event_cb, "bluetooth_call" );
+    blectl_register_cb( BLECTL_MSG_JSON, bluetooth_call_event_cb, "bluetooth_call" );
 }
 
 bool bluetooth_call_event_cb( EventBits_t event, void *arg ) {
     switch( event ) {
-        case BLECTL_MSG:            
-            bluetooth_call_msg_pharse( (const char*)arg );
+        case BLECTL_MSG_JSON:            
+            bluetooth_call_msg_pharse( *(BluetoothJsonRequest*)arg );
             break;
     }
     return( true );
@@ -97,68 +90,58 @@ static void exit_bluetooth_call_event_cb( lv_obj_t * obj, lv_event_t event ) {
     }
 }
 
-void bluetooth_call_msg_pharse( const char* msg ) {
+void bluetooth_call_msg_pharse( BluetoothJsonRequest &doc ) {
     static bool standby = false;
+
     /*
-     * allocate json memory and serialize msg
+     * check if type and cmd available
      */
-    SpiRamJsonDocument doc( strlen( msg ) * 4 );
-    DeserializationError error = deserializeJson( doc, msg );
-    if ( error ) {
-        log_e("bluetooth call deserializeJson() failed: %s", error.c_str() );
-    }
-    else {
+    if ( doc["t"] && doc["cmd"] ) {
         /*
-         * check if type and cmd available
+         * check for an incoming call
          */
-        if ( doc["t"] && doc["cmd"] ) {
+        if( !strcmp( doc["t"], "call" ) && !strcmp( doc["cmd"], "accept" ) ) {
             /*
-             * check for an incoming call
+             * hide statusbar and save current powerstate for later use after a call
              */
-            if( !strcmp( doc["t"], "call" ) && !strcmp( doc["cmd"], "accept" ) ) {
-                /*
-                 * hide statusbar and save current powerstate for later use after a call
-                 */
-                statusbar_hide( true );
-                if ( powermgm_get_event( POWERMGM_STANDBY ) ) {
-                    standby = true;
+            statusbar_hide( true );
+            if ( powermgm_get_event( POWERMGM_STANDBY ) ) {
+                standby = true;
+            }
+            else {
+                standby = false;
+            }
+            /*
+             * wake up and jup to call tile
+             */
+            powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
+            mainbar_jump_to_tilenumber( bluetooth_call_tile_num, LV_ANIM_OFF );
+            /*
+             * set caller information
+             */
+            if ( doc["number"] ) {
+                if ( doc["name"] ) {
+                    lv_label_set_text( bluetooth_call_number_label, doc["name"] );
                 }
                 else {
-                    standby = false;
+                    lv_label_set_text( bluetooth_call_number_label, doc["number"] );
                 }
-                /*
-                 * wake up and jup to call tile
-                 */
-                powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
-                mainbar_jump_to_tilenumber( bluetooth_call_tile_num, LV_ANIM_OFF );
-                /*
-                 * set caller information
-                 */
-                if ( doc["number"] ) {
-                    if ( doc["name"] ) {
-                        lv_label_set_text( bluetooth_call_number_label, doc["name"] );
-                    }
-                    else {
-                        lv_label_set_text( bluetooth_call_number_label, doc["number"] );
-                    }
-                }
-                else {
-                    lv_label_set_text( bluetooth_call_number_label, "n/a" );
-                }
-                lv_obj_align( bluetooth_call_number_label, bluetooth_call_img, LV_ALIGN_OUT_BOTTOM_MID, 0, 5 );                
-                motor_vibe(100);            
             }
-            else if( !strcmp( doc["t"], "call" ) && !strcmp( doc["cmd"], "start" ) ) {
-                /*
-                 * restore last powerstate after call
-                 */
-                if ( standby == true ) {
-                    powermgm_set_event( POWERMGM_STANDBY_REQUEST );
-                }
-                mainbar_jump_to_maintile( LV_ANIM_OFF );
+            else {
+                lv_label_set_text( bluetooth_call_number_label, "n/a" );
             }
-            lv_obj_invalidate( lv_scr_act() );
+            lv_obj_align( bluetooth_call_number_label, bluetooth_call_img, LV_ALIGN_OUT_BOTTOM_MID, 0, 5 );                
+            motor_vibe(100);            
         }
-    }        
-    doc.clear();
+        else if( !strcmp( doc["t"], "call" ) && !strcmp( doc["cmd"], "start" ) ) {
+            /*
+                * restore last powerstate after call
+                */
+            if ( standby == true ) {
+                powermgm_set_event( POWERMGM_STANDBY_REQUEST );
+            }
+            mainbar_jump_to_maintile( LV_ANIM_OFF );
+        }
+        lv_obj_invalidate( lv_scr_act() );
+    }
 }
