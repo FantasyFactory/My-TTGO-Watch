@@ -29,6 +29,8 @@
 #include "gui/mainbar/main_tile/main_tile.h"
 #include "gui/mainbar/mainbar.h"
 #include "gui/statusbar.h"
+#include "gui/widget_factory.h"
+#include "gui/widget_styles.h"
 
 #include "bas_arduino.h"
 #include "file_module.h"
@@ -67,7 +69,7 @@ const char *BasFileName = "/spiffs/myfile.bas";
 void my_basic_app_main_setup( uint32_t tile_num ) {
 
     my_basic_app_main_tile = mainbar_get_tile_obj( tile_num );
-    lv_style_copy( &my_basic_app_main_style, mainbar_get_style() );
+    lv_style_copy( &my_basic_app_main_style, ws_get_mainbar_style() );
 
     lv_obj_t * exit_btn = lv_imgbtn_create( my_basic_app_main_tile, NULL);
     lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_RELEASED, &exit_32px);
