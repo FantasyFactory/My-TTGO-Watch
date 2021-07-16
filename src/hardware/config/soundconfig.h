@@ -31,6 +31,7 @@
      */
     class sound_config_t : public BaseJsonConfig {
         public:
+        sound_config_t();
 
         bool mosconi_call = true;
         uint8_t volume = 50;            /** @brief sound value from 0..100 */

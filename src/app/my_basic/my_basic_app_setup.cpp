@@ -43,7 +43,7 @@ static void my_basic_app_foobar_switch_event_cb( lv_obj_t * obj, lv_event_t even
 void my_basic_app_setup_setup( uint32_t tile_num ) {
 
     my_basic_app_setup_tile = mainbar_get_tile_obj( tile_num );
-    lv_style_copy( &my_basic_app_setup_style, ws_get_mainbar_style() );
+    lv_style_copy( &my_basic_app_setup_style, ws_get_setup_tile_style()  );
 
     lv_style_set_bg_color( &my_basic_app_setup_style, LV_OBJ_PART_MAIN, LV_COLOR_GRAY);
     lv_style_set_bg_opa( &my_basic_app_setup_style, LV_OBJ_PART_MAIN, LV_OPA_100);

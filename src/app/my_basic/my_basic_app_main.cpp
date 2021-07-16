@@ -90,13 +90,7 @@ void my_basic_app_main_setup( uint32_t tile_num ) {
     lv_obj_set_event_cb( setup_btn, enter_my_basic_app_setup_event_cb );
 
 
-    /************ my_basic_cont main container (for lvgl integration) *********/
-    lv_obj_t *my_basic_cont = lv_obj_create( my_basic_app_main_tile, NULL );
-    lv_obj_set_size( my_basic_cont, lv_disp_get_hor_res( NULL ) , 200);
-    lv_style_copy( &my_basic_cont_main_style, ws_get_mainbar_style() );
-    lv_style_set_bg_color( &my_basic_cont_main_style, LV_OBJ_PART_MAIN, LV_COLOR_BLUE);
-    lv_obj_add_style( my_basic_cont, LV_OBJ_PART_MAIN, &my_basic_cont_main_style  );
-    lv_obj_align( my_basic_cont, my_basic_app_main_tile, LV_ALIGN_IN_TOP_MID, 0, 10 );
+
 
     /************ my_basic_output_label label for  "PRINT" redirection *********/
 #ifdef UseOutputLabel    

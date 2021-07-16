@@ -107,7 +107,7 @@ void sound_settings_tile_setup( void ) {
     lv_obj_align( mosconi_enable_cont, sound_settings_tile, LV_ALIGN_IN_BOTTOM_RIGHT, 0, 0 );
     mosconi_enable = lv_switch_create( mosconi_enable_cont, NULL );
     lv_obj_add_protect( mosconi_enable, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( mosconi_enable, LV_SWITCH_PART_INDIC, mainbar_get_switch_style() );
+    lv_obj_add_style( mosconi_enable, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
     lv_switch_off( mosconi_enable, LV_ANIM_ON );
     lv_obj_align( mosconi_enable, mosconi_enable_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0 );
     //lv_obj_set_event_cb( mosconi_enable, sound_enable_setup_event_cb );

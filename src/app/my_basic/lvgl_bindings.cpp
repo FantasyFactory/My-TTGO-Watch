@@ -1,8 +1,4 @@
-extern "C"
-{
-#include "my_basic.h"
-}
-
+#define LILYGO_WATCH_2020_V1
 #ifdef LILYGO_WATCH_2020_V1
 #include <TTGO.h>
 #include "hardware/display.h"
