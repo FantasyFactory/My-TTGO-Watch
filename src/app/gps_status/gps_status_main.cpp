@@ -30,9 +30,12 @@
 #include "gui/mainbar/main_tile/main_tile.h"
 #include "gui/mainbar/mainbar.h"
 #include "gui/statusbar.h"
+#include "gui/widget_factory.h"
 #include "gui/widget_styles.h"
 
 #include "hardware/gpsctl.h"
+#include "hardware/display.h"
+#include "gui/mainbar/mainbar.h"
 
 /*
  * tile  and style objects
@@ -48,15 +51,15 @@ static lv_style_t style_led_red;
 lv_obj_t *satfix_value_on = NULL;
 lv_obj_t *satfix_value_off = NULL;
 lv_obj_t *num_satellites_value = NULL;
+lv_obj_t *satellite_type = NULL;
 lv_obj_t *pos_longlat_value = NULL;
 lv_obj_t *altitude_value = NULL;
 lv_obj_t *speed_value = NULL;
 lv_obj_t *source_value = NULL;
+static bool gps_status_block_return_maintile = false;
 /*
  * images
  */
-LV_IMG_DECLARE(exit_32px);
-LV_IMG_DECLARE(setup_32px);
 LV_IMG_DECLARE(refresh_32px);
 LV_FONT_DECLARE(Ubuntu_32px);
 LV_FONT_DECLARE(Ubuntu_16px);
@@ -72,23 +75,11 @@ void gps_status_main_setup(uint32_t tile_num) {
     gps_status_main_tile = mainbar_get_tile_obj(tile_num);
     lv_style_copy(&gps_status_main_style, ws_get_mainbar_style());
 
-    lv_obj_t *exit_btn = lv_imgbtn_create(gps_status_main_tile, NULL);
-    lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_RELEASED, &exit_32px);
-    lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_PRESSED, &exit_32px);
-    lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_CHECKED_RELEASED, &exit_32px);
-    lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_CHECKED_PRESSED, &exit_32px);
-    lv_obj_add_style(exit_btn, LV_IMGBTN_PART_MAIN, &gps_status_main_style);
+    lv_obj_t * exit_btn = wf_add_exit_button( gps_status_main_tile, exit_gps_status_main_event_cb, &gps_status_main_style );
     lv_obj_align(exit_btn, gps_status_main_tile, LV_ALIGN_IN_BOTTOM_LEFT, 10, -10);
-    lv_obj_set_event_cb(exit_btn, exit_gps_status_main_event_cb);
 
-    lv_obj_t *setup_btn = lv_imgbtn_create(gps_status_main_tile, NULL);
-    lv_imgbtn_set_src(setup_btn, LV_BTN_STATE_RELEASED, &setup_32px);
-    lv_imgbtn_set_src(setup_btn, LV_BTN_STATE_PRESSED, &setup_32px);
-    lv_imgbtn_set_src(setup_btn, LV_BTN_STATE_CHECKED_RELEASED, &setup_32px);
-    lv_imgbtn_set_src(setup_btn, LV_BTN_STATE_CHECKED_PRESSED, &setup_32px);
-    lv_obj_add_style(setup_btn, LV_IMGBTN_PART_MAIN, &gps_status_main_style);
+    lv_obj_t *setup_btn = wf_add_setup_button(gps_status_main_tile, enter_gps_status_setup_event_cb, &gps_status_main_style);
     lv_obj_align(setup_btn, gps_status_main_tile, LV_ALIGN_IN_BOTTOM_RIGHT, -10, -10);
-    lv_obj_set_event_cb(setup_btn, enter_gps_status_setup_event_cb);
     lv_obj_set_hidden(setup_btn, true);
 
     lv_style_copy(&gps_status_value_style, ws_get_mainbar_style());
@@ -148,12 +139,27 @@ void gps_status_main_setup(uint32_t tile_num) {
     lv_label_set_text(num_satellites_value, "n/a");
     lv_obj_align(num_satellites_value, num_satellites_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0);
     /*
+     * satellite type
+     */
+    lv_obj_t *satellite_type_cont = lv_obj_create(gps_status_main_tile, NULL);
+    lv_obj_set_size(satellite_type_cont, lv_disp_get_hor_res(NULL), STATUS_HEIGHT);
+    lv_obj_add_style(satellite_type_cont, LV_OBJ_PART_MAIN, &gps_status_value_style);
+    lv_obj_align(satellite_type_cont, num_satellites_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+    lv_obj_t *satellite_type_label = lv_label_create(satellite_type_cont, NULL);
+    lv_obj_add_style(satellite_type_label, LV_OBJ_PART_MAIN, &gps_status_value_style);
+    lv_label_set_text(satellite_type_label, "Sat type:");
+    lv_obj_align(satellite_type_label, satellite_type_cont, LV_ALIGN_IN_LEFT_MID, 5, 0);
+    satellite_type = lv_label_create(satellite_type_cont, NULL);
+    lv_obj_add_style(satellite_type, LV_OBJ_PART_MAIN, &gps_status_value_style);
+    lv_label_set_text(satellite_type, "n/a");
+    lv_obj_align(satellite_type, satellite_type_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0);
+    /*
      * altitude
      */
     lv_obj_t *altitude_cont = lv_obj_create(gps_status_main_tile, NULL);
     lv_obj_set_size(altitude_cont, lv_disp_get_hor_res(NULL), STATUS_HEIGHT);
     lv_obj_add_style(altitude_cont, LV_OBJ_PART_MAIN, &gps_status_value_style);
-    lv_obj_align(altitude_cont, num_satellites_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+    lv_obj_align(altitude_cont, satellite_type_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
     lv_obj_t *altitude_info_label = lv_label_create(altitude_cont, NULL);
     lv_obj_add_style(altitude_info_label, LV_OBJ_PART_MAIN, &gps_status_value_style);
     lv_label_set_text(altitude_info_label, "Altitude");
@@ -214,11 +220,16 @@ void gps_status_main_setup(uint32_t tile_num) {
                           | GPSCTL_NOFIX
                           | GPSCTL_UPDATE_LOCATION
                           | GPSCTL_UPDATE_SATELLITE
+                          | GPSCTL_UPDATE_SATELLITE_TYPE
                           | GPSCTL_UPDATE_SPEED
                           | GPSCTL_UPDATE_ALTITUDE
                           | GPSCTL_UPDATE_SOURCE
                           , gpsctl_gps_status_event_cb
                           , "gpsctl gps status" );
+    /** register avtivate and hibernate callback function */
+    gps_status_block_return_maintile = display_get_block_return_maintile();
+    mainbar_add_tile_activate_cb( tile_num, gps_status_activate_cb );
+    mainbar_add_tile_hibernate_cb( tile_num, gps_status_hibernate_cb );
 }
 
 static void enter_gps_status_setup_event_cb(lv_obj_t *obj, lv_event_t event) {
@@ -234,13 +245,13 @@ static void enter_gps_status_setup_event_cb(lv_obj_t *obj, lv_event_t event) {
 static void exit_gps_status_main_event_cb(lv_obj_t *obj, lv_event_t event) {
     switch (event) {
         case (LV_EVENT_CLICKED):
-            mainbar_jump_to_maintile(LV_ANIM_OFF);
+            mainbar_jump_back();
             break;
     }
 }
 
 bool gpsctl_gps_status_event_cb( EventBits_t event, void *arg ) {
-    char temp[20] = "";
+    char temp[30] = "";
     gps_data_t *gps_data = (gps_data_t*)arg;
 
     switch( event ) {
@@ -271,6 +282,12 @@ bool gpsctl_gps_status_event_cb( EventBits_t event, void *arg ) {
                 snprintf( temp, sizeof( temp ), "n/a" );
             lv_label_set_text( num_satellites_value, temp );
             break;
+        case GPSCTL_UPDATE_SATELLITE_TYPE:
+            snprintf( temp, sizeof( temp ), "GP %d, GL %d, BD %d", gps_data->satellite_types.gps_satellites,
+                                                                   gps_data->satellite_types.glonass_satellites,
+                                                                   gps_data->satellite_types.baidou_satellites );
+            lv_label_set_text( satellite_type, temp );
+            break;
         case GPSCTL_UPDATE_SPEED:
             if ( gps_data->valid_speed )
                 snprintf( temp, sizeof( temp ), "%.2fkm/h", gps_data->speed_kmh );
@@ -292,9 +309,23 @@ bool gpsctl_gps_status_event_cb( EventBits_t event, void *arg ) {
 
     lv_obj_align( pos_longlat_value, lv_obj_get_parent( pos_longlat_value ), LV_ALIGN_IN_RIGHT_MID, -5, 0);
     lv_obj_align( num_satellites_value, lv_obj_get_parent( num_satellites_value ), LV_ALIGN_IN_RIGHT_MID, -5, 0);
+    lv_obj_align( satellite_type, lv_obj_get_parent( satellite_type ), LV_ALIGN_IN_RIGHT_MID, -5, 0);
     lv_obj_align( speed_value, lv_obj_get_parent( speed_value ), LV_ALIGN_IN_RIGHT_MID, -5, 0);
     lv_obj_align( altitude_value, lv_obj_get_parent( altitude_value ), LV_ALIGN_IN_RIGHT_MID, -5, 0);
     lv_obj_align( source_value, lv_obj_get_parent( source_value ), LV_ALIGN_IN_RIGHT_MID, -5, 0);
 
     return( true );
+}
+
+void gps_status_hibernate_cb(void)
+{
+    /** restore old "block the maintile value */
+    display_set_block_return_maintile( gps_status_block_return_maintile );
+}
+void gps_status_activate_cb(void)
+{
+    /** save "block the maintile" value */
+    gps_status_block_return_maintile = display_get_block_return_maintile();
+    /** overwrite "block the maintile" value */
+    display_set_block_return_maintile( true );
 }

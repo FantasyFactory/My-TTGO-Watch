@@ -22,8 +22,15 @@
 #include "Arduino.h"
 #include "bas_arduino.h"
 #include "hw_bindings.h"
+#include "file_module.h"
+#include "lvgl_bindings.h"
+#include "various_module.h"
 
 #define dbg(x) Serial.println(x)
+
+#define BasIdLenght 32
+#define BasTasks 4
+#define MaxLoadedBas 8
 
 //The high level OOP API
 _MyBasic MyBasic;
@@ -35,14 +42,14 @@ _MyBasic MyBasic;
 //This is a set of queues
 static QueueHandle_t request_queue;
 
-//Allow up to 8 tasks
-static TaskHandle_t basTasks[8];
+//Allow up to 4 tasks
+static TaskHandle_t basTasks[BasTasks];
 
 //This is the queue used to request that a basic interpreter thread does something
 static QueueHandle_t requestqueue;
 
 //List of the interpreters for all loaded programs
-static mb_interpreter_t *loadedPrograms[16];
+static mb_interpreter_t *loadedPrograms[MaxLoadedBas];
 
 //The root basic interpreter, passing a null pointer when getting by ID returns this
 mb_interpreter_t* bas_parent = NULL;
@@ -54,7 +61,7 @@ SemaphoreHandle_t bas_gil;
 //The userdata struct for each loadedProgram interpreter
 struct loadedProgram {
   //This is how we can know which program to replace when updating with a new version
-  char programID[16];
+  char programID[BasIdLenght];
 
   //The first 30 bytes of a file identify its "version" so we don't
   //replace things that don't need replacing.
@@ -73,6 +80,9 @@ struct loadedProgram {
   //When a child interpreter runs, it increments all parents and itself.
   //In this way it is kind of like a reference count.
   char busy; 
+
+  lv_obj_t *my_basic_cont;
+  lv_style_t *my_basic_cont_main_style;
 };
 
 //Given a string program ID, return the mb interpreter for it, or 0,
@@ -86,21 +96,20 @@ static mb_interpreter_t** _programForId(const char * id) {
       return 0;
     }
   }
-  for (char i = 0; i < 16; i++) {
+  for (char i = 0; i < MaxLoadedBas; i++) {
     if (loadedPrograms[i]) {
       mb_get_userdata(loadedPrograms[i], (void**)&ud);
       if (strcmp(ud->programID, id) == 0) { 
-        dbg("request for");
-        dbg(id);
-        dbg("Got interpreter for");
-        dbg(ud->programID);
+        // dbg("request for");
+        // dbg(id);
+        // dbg("Got interpreter for");
+        // dbg(ud->programID);
         return &loadedPrograms[i];
       }
     }
   }
   return 0;
 }
-
 
 ///This must be called under lock. We can't manage that because we don't
 ///Know what you plan to do with it.
@@ -134,8 +143,6 @@ static char _mbisbusy(mb_interpreter_t * i) {
   return 0; 
 }
 
-
-
 //Mark a program as busy by incrementing the reference count
 static void _mbsetbusy(mb_interpreter_t * i) {
   struct loadedProgram * ud;
@@ -158,7 +165,6 @@ static void _mbsetfree(mb_interpreter_t * i) {
   } 
 }
 
-
 //Represents a request to do something with
 struct BasRequest {
   //Pointer tp the target of the request
@@ -169,14 +175,12 @@ struct BasRequest {
   void * arg;
 };
 
-
 static void makeRequest(mb_interpreter_t * interpreter, mb_value_t * object) {
   struct BasRequest br;
   br.interpreter = interpreter;
   br.object = object;
   xQueueSend(request_queue, &br, portMAX_DELAY);
 }
-
 
 //Close a program by ID
 static void _closeProgram(const char * id) {
@@ -203,10 +207,28 @@ static void _closeProgram(const char * id) {
   mb_close(old);
 }
 
+static void _setLv(const char * id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
+  mb_interpreter_t ** bas = _programForId(id);
+
+  struct loadedProgram * ud;
+  if (*bas == 0) {
+    return;
+  }
+
+  mb_get_userdata(*bas, (void **)&ud);
+  log_i("{ _setLv(%s, 0x%lx, 0x%lx) }\n", id, my_basic_cont, my_basic_cont_main_style );
+
+  enableLVGL(*bas, my_basic_cont, my_basic_cont_main_style);
+  ud->my_basic_cont = my_basic_cont;
+  ud->my_basic_cont_main_style = my_basic_cont_main_style;
+  mb_set_userdata(*bas, ud);
+}
 
 static void BasicInterpreterTask(void *) {
   struct BasRequest br;
   struct loadedProgram * ud;
+
+  log_i("ENTER BasicInterpreterTask !!!\n");
 
   while (1) {
     xQueueReceive(request_queue, &br, portMAX_DELAY);
@@ -231,7 +253,9 @@ static void BasicInterpreterTask(void *) {
     }
 
     _mbsetbusy(br.interpreter);
-    dbg("running");
+    log_i("running interpreter 0x%lx", br.interpreter);
+    mb_get_userdata(br.interpreter,(void**)&ud);
+    SetLvPtr(ud->my_basic_cont,ud->my_basic_cont_main_style);
     mb_run(br.interpreter, true);
     dbg("exited");
     _mbsetfree(br.interpreter);
@@ -256,23 +280,30 @@ int bas_delay_rtos(struct mb_interpreter_t* s, void** l) {
   return result;
 }
 
-void _MyBasic::begin(char numThreads) {
+void _MyBasic::begin(char numThreads, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style) {
 
-  for (char i = 0; i < 16; i++) {
-    loadedPrograms[i] == 0;
+  for (char i = 0; i < MaxLoadedBas; i++) {
+    loadedPrograms[i] = 0;
   }
+
   mb_init();
 
-
   //Start the root interpreter
-  const char * code =  "'The only line in this root program currently is this comment";
+  const char * code =  "'The only line in this root program currently is this comment\n";
   mb_open(&bas_parent);
   enableArduinoBindings(bas_parent);
+  enableSerialPrint(bas_parent);
+  enableFileModule(bas_parent);
+  enableVariousModule(bas_parent);
+  enableLVGL(bas_parent, my_basic_cont, my_basic_cont_main_style);
+
   mb_remove_func(bas_parent,"DELAY");
   mb_register_func(bas_parent, "DELAY", bas_delay_rtos);
-  mb_load_string(bas_parent,code, true);
 
-  struct loadedProgram * loadedprg = (struct loadedProgram *)malloc(sizeof(struct loadedProgram));
+  mb_set_error_handler(bas_parent, _on_error); // CC
+  mb_load_string(bas_parent, code, true);
+
+  struct loadedProgram * loadedprg = (struct loadedProgram *)ps_malloc(sizeof(struct loadedProgram));
   memcpy(loadedprg->hash, code, 30);
   loadedprg->busy = 0;
   mb_set_userdata(bas_parent, loadedprg);
@@ -282,7 +313,7 @@ void _MyBasic::begin(char numThreads) {
   xSemaphoreGive(bas_gil);
   request_queue = xQueueCreate( 25, sizeof(struct BasRequest));
 
-  for(char i =0; i<numThreads; i++) {
+  for(char i=0; i<numThreads; i++) {
     xTaskCreatePinnedToCore(BasicInterpreterTask,
                 "MyBasic",
                 stackSize,
@@ -310,7 +341,6 @@ static void basyield(mb_interpreter_t *) {
   MB_LOCK;
 }
 
-
 //Polls the interpreter until it's free. waiting sleepfor in between.
 //Should force_close be true, it will wait a maximum of retries before
 //Closing everything.
@@ -334,10 +364,12 @@ void mb_wait_directly_free(mb_interpreter_t *s,int sleepfor, char force_close, i
 
 //Load a new program with the given ID, replacing any with the same ID if the
 //first 30 bytes are different.
-int _loadProgram(const char * code, const char * id) {
+int _loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont = NULL, lv_style_t *my_basic_cont_main_style = NULL) {
   mb_interpreter_t ** old = _programForId(id);
   struct loadedProgram * ud = 0;
   //Check if programs are the same
+
+  log_i("_programForId(%s)=0x%lx\n",id,old);
 
   if (old) {
     mb_get_userdata(*old, (void **)&ud);
@@ -374,35 +406,66 @@ int _loadProgram(const char * code, const char * id) {
   {
     mb_open(&bas_parent);
     enableArduinoBindings(bas_parent);
+    enableSerialPrint(bas_parent);
+    enableFileModule(bas_parent);
+    enableVariousModule(bas_parent);
+
+    enableLVGL(bas_parent, my_basic_cont, my_basic_cont_main_style);
+
+    mb_remove_func(bas_parent,"DELAY"); // CC
+    mb_register_func(bas_parent, "DELAY", bas_delay_rtos); // CC
+
+    mb_set_error_handler(bas_parent, _on_error);
     mb_load_string(bas_parent, code, true);
 
-    struct loadedProgram * loadedprg = (struct loadedProgram *)malloc(sizeof(struct loadedProgram));
+    struct loadedProgram * loadedprg = (struct loadedProgram *)ps_malloc(sizeof(struct loadedProgram));
     memcpy(loadedprg->hash, code, 30);
     loadedprg->busy = 0;
+    loadedprg->my_basic_cont = my_basic_cont;
+    loadedprg->my_basic_cont_main_style = my_basic_cont_main_style;
     mb_set_userdata(bas_parent, loadedprg);
+    log_i("LoadProgram found root\n");
     return 0;
   }
 
   //Find a free interpreter slot
-  for (char i = 0; i < 16; i++) {
+  for (char i = 0; i < MaxLoadedBas; i++) {
     if (loadedPrograms[i] == 0) {
       mb_interpreter_t * n = 0;
       mb_open_child(&n, &bas_parent);
       mb_load_string(n, code, true);
+
+      enableArduinoBindings(n);
+      enableSerialPrint(n);
+      enableFileModule(n);
+      enableVariousModule(n);
+
+      enableLVGL(n, my_basic_cont, my_basic_cont_main_style);
+
+      mb_remove_func(n,"DELAY"); // CC
+      mb_register_func(n, "DELAY", bas_delay_rtos); // CC
+
+      mb_set_error_handler(n, _on_error);
+
       mb_set_yield(n, basyield);
 
-      struct loadedProgram * loadedprg = (struct loadedProgram *) malloc(sizeof(struct loadedProgram));
+      struct loadedProgram * loadedprg = (struct loadedProgram *) ps_malloc(sizeof(struct loadedProgram));
       memcpy(loadedprg->hash, code, 30);
       strcpy(loadedprg->programID, id);
       loadedprg->programID[strlen(id)] = 0;
       loadedprg->busy = 0;
+      loadedprg->my_basic_cont=my_basic_cont;
+      loadedprg->my_basic_cont_main_style=my_basic_cont_main_style;
+      
 
       mb_set_userdata(n, loadedprg);
       loadedPrograms[i] = n;
+      log_i("LoadProgram found slot %d for %s as 0x%lx\n",i, id, n);
       return 0;
     }
   }
 
+  log_i("LoadProgram return 1\n");
   //err, could not find free slot for program
   return 1;
 }
@@ -420,15 +483,15 @@ int _MyBasic::appendInput(const char * data, int len,const char * id) {
     //But it's also just a handy STDIN like feature.
     if (old==0) {
       //Load an empty program with that ID
-      _loadProgram("", id);
+      _loadProgram("", id, ud->my_basic_cont, ud->my_basic_cont_main_style);
     }
 
     mb_get_userdata(*old, (void **)&ud);
     //Check if the versions are the same
     if(ud->inputBuffer) {
-      ud->inputBuffer=(char *)realloc(ud->inputBuffer, ud->inputBufferLen+len+1);
+      ud->inputBuffer=(char *)ps_realloc(ud->inputBuffer, ud->inputBufferLen+len+1);
     } else {
-      ud->inputBuffer = (char *)malloc(len+1);
+      ud->inputBuffer = (char *)ps_malloc(len+1);
     }
     memcpy(ud->inputBuffer, data, len);
     ud->inputBufferLen += len;
@@ -472,7 +535,7 @@ int _MyBasic::updateProgram(const char * code, const char * id) {
     mb_reset_preserve(old, 0);
     mb_load_string(*old, code, true);
   } else  {
-    _loadProgram(code, id);
+    _loadProgram(code, id, ud->my_basic_cont, ud->my_basic_cont_main_style);
   }
   MB_UNLOCK;
 }
@@ -483,15 +546,23 @@ void _MyBasic::yield() {
   MB_LOCK;
 }
 
-int _MyBasic::loadProgram(const char * code, const char * id) {
+int _MyBasic::loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
   MB_LOCK;
-  int ret = _loadProgram(code, id);
+  int ret = _loadProgram(code, id, my_basic_cont, my_basic_cont_main_style);
   MB_UNLOCK;
   return ret;
 }
 
 void _MyBasic::runLoaded(const char * id) {
    makeRequest(*_programForId(id),(mb_value_t *)*_programForId(id));
+}
+
+void _MyBasic::setLv( const char *id, lv_obj_t *my_basic_cont, lv_style_t *my_basic_cont_main_style ) {
+  _setLv(id, my_basic_cont, my_basic_cont_main_style );
+}
+
+void _MyBasic::closeProgram(const char * id) {
+  _closeProgram(id);
 }
 
 void mbRunInProgram(char * source, const char * id) {
@@ -519,4 +590,35 @@ void mb_subshell(char * source, char * id) {
   MB_UNLOCK;
 }
 
+void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code) {
+  mb_unrefvar(s);
+  mb_unrefvar(p);
+
+  if (e != SE_NO_ERR) {
+    if (f) {
+      if (e == SE_RN_WRONG_FUNCTION_REACHED) {
+        log_e(
+          "Error:\n    Ln %d, Col %d in Func: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
+          row, col, f,
+          e, abort_code,
+          m
+        );
+      } else {
+        log_e(
+          "Error:\n    Ln %d, Col %d in File: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
+          row, col, f,
+          e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
+          m
+        );
+      }
+    } else {
+      log_e(
+        "Error:\n    Ln %d, Col %d\n    Code %d, Abort Code %d\n    Message: %s.\n",
+        row, col,
+        e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
+        m
+      );
+    }
+  }
+}
 

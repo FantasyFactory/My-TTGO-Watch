@@ -27,6 +27,7 @@
 
 #include "gui/mainbar/mainbar.h"
 #include "gui/statusbar.h"
+#include "gui/widget_factory.h"
 #include "gui/widget_styles.h"
 
 lv_obj_t *my_basic_app_setup_tile = NULL;

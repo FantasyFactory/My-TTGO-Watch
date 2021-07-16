@@ -23,6 +23,7 @@
     #define _BLUETOOTH_MESSAGE_H
 
     #include <TTGO.h>
+    #include "lvgl/lvgl.h"
 
     struct src_icon_t {
         const char src_name[ 24 ];
@@ -33,5 +34,6 @@
     void bluetooth_message_disable( void );
     void bluetooth_message_enable( void );
     bool bluetooth_message_queue_msg( const char *msg );
+    int32_t bluetooth_get_number_of_msg( void );
 
 #endif // _BLUETOOTH_MESSAGE_H

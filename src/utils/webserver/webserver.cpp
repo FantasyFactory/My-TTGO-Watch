@@ -36,6 +36,8 @@
 
 AsyncWebServer asyncserver( WEBSERVERPORT );
 TaskHandle_t _WEBSERVER_Task;
+AsyncWebHandler mHandler_SPIFFSEditor;
+SPIFFSEditor * mSPIFFSEditor = nullptr;
 
 
   static const char* serverIndex =
@@ -167,7 +169,7 @@ void asyncwebserver_start(void){
       "<li><a target=\"cont\" href=\"/touch\">/touch</a> - Display touch screen information"
       "<li><a target=\"cont\" href=\"/network\">/network</a> - Display network information"
       "<li><a target=\"cont\" href=\"/shot\">/shot</a> - Capture a screen shot"
-      "<li><a target=\"cont\" href=\"/screen.data\">/screen.data</a> - Retrieve the image in RGB565 format, open it with gimp"
+      "<li><a target=\"cont\" href=\"/screen.png\">/screen.png</a> - Retrieve the image in png format, open it with gimp"
       "<li><a target=\"_blank\" href=\"/edit\">/edit</a> - View, edit, upload, and delete files"
       "</ul>"
       "<p><div style=\"color:red;\">Caution:</div> Use these with care:"
@@ -312,7 +314,9 @@ void asyncwebserver_start(void){
     screenshot_save();
   });
 
-  asyncserver.addHandler(new SPIFFSEditor(SPIFFS));
+  //start FsEditor with SPIFFS
+  setFsEditorFilesystem(SPIFFS);
+
   asyncserver.rewrite("/", "/index.htm");
   asyncserver.serveStatic("/", SPIFFS, "/");
 
@@ -452,4 +456,15 @@ void asyncwebserver_end(void) {
   SSDP.end();
   asyncserver.end();
   log_d("disable webserver and ssdp");
+}
+
+void setFsEditorFilesystem(const fs::FS& fs)
+{
+    log_d("asyncserver.removeHandler");
+    asyncserver.removeHandler(&mHandler_SPIFFSEditor);
+    if(mSPIFFSEditor!=nullptr)
+      delete mSPIFFSEditor;  
+    mSPIFFSEditor = new SPIFFSEditor(fs);
+    log_d("asyncserver.addHandler");
+    mHandler_SPIFFSEditor = asyncserver.addHandler(mSPIFFSEditor);
 }

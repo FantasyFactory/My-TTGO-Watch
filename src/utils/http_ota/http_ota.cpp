@@ -28,8 +28,9 @@
 #include "hardware/callback.h"
 #include "hardware/blectl.h"
 #include "hardware/pmu.h"
+#include "hardware/display.h"
 
-#include "utils/ESP32-targz/ESP32-targz.h"
+#include "utils/decompress/decompress.h"
 
 callback_t *http_ota_callback = NULL;
 bool http_ota_start_compressed( const char* url, const char* md5, int32_t firmwaresize );
@@ -61,22 +62,46 @@ bool http_ota_start( const char* url, const char* md5, int32_t firmwaresize ) {
         http_ota_send_event_cb( HTTP_OTA_START, (void*)"get uncompressed firmware ..." );
         retval = http_ota_start_uncompressed( url, md5 );
     }
-
     return( retval );
 }
 
 bool http_ota_start_compressed( const char* url, const char* md5, int32_t firmwaresize ) {
     bool retval = false;
-    int32_t size = UPDATE_SIZE_UNKNOWN;
 
     HTTPClient http;
-    /**
-     * start get firmware file
-     */
+    WiFiClientSecure *sslclient = NULL;
     http.setUserAgent( "ESP32-UPDATE-" __FIRMWARE__ );
-    http.begin( url );
+    /**
+     * setup http or https
+     */
+    if( strstr( url, "http://" ) ) {
+        /**
+         * start get firmware file
+         */
+        http.begin( url );
+    }
+    else if( strstr( url, "https://" ) ) {
+        /**
+         * setup ssl/tls layer
+         */
+        sslclient = new WiFiClientSecure;
+        sslclient->setInsecure();
+        /*
+         * start get firmware file
+         */
+        http.begin( *sslclient, url );
+    }
+    else {
+        log_e("url type not supported, only http:// or https://");
+        return( false );
+    }
+    /**
+     * start GET request
+     */
     int httpCode = http.GET();
-
+    /**
+     * check http respone code
+     */
     if ( httpCode > 0 && httpCode == HTTP_CODE_OK ) {
         /**
          * send http_ota_start event
@@ -85,26 +110,27 @@ bool http_ota_start_compressed( const char* url, const char* md5, int32_t firmwa
         /**
          * start an unpacker instance, reister progress callback and put the stream in
          */
-        GzUnpacker *GZUnpacker = new GzUnpacker();
-        GZUnpacker->setGzProgressCallback( http_ota_progress_cb );
-        /**
-         * if firmware size known set the right value
-         */
-        if ( firmwaresize != 0 )
-            size = firmwaresize;
-        /**
-         * progress the stream
-         */
-        if( !GZUnpacker->gzStreamUpdater( http.getStreamPtr(), size, 0, false ) ) {
-            log_e("gzStreamUpdater failed with return code #%d\n", GZUnpacker->tarGzGetError() );
-            http_ota_send_event_cb( HTTP_OTA_ERROR, (void*)"Flashing ... failed!" );
+        if( !decompress_stream_into_flash( http.getStreamPtr(), md5, firmwaresize, http_ota_progress_cb ) ) {
+            http_ota_send_event_cb( HTTP_OTA_ERROR, (void*)"error ... weak wifi?" );
         }
         else {
             http_ota_send_event_cb( HTTP_OTA_FINISH, (void*)"Flashing ... done!" );
             retval = true;
         }
     }
+    else {
+        http_ota_send_event_cb( HTTP_OTA_ERROR, (void*)"http error ... weak wifi?" );        
+    }
+    /**
+     * terminate http client
+     */
     http.end();
+    /**
+     * terminate ssl/tls layer if exist
+     */
+    if( sslclient ) {
+        sslclient->stop();
+    }
 
     return( retval );
 }
@@ -119,11 +145,35 @@ bool http_ota_start_uncompressed( const char* url, const char* md5 ) {
     uint8_t buff[ HTTP_OTA_BUFFER_SIZE ] = { 0 };       /** @brief firmware write buffer */
 
     HTTPClient http;
-    /**
-     * setup user agent and get connect
-     */
+    WiFiClientSecure *sslclient = NULL;
     http.setUserAgent( "ESP32-UPDATE-" __FIRMWARE__ );
-    http.begin( url );
+    /**
+     * setup http or https
+     */
+    if( strstr( url, "http://" ) ) {
+        /**
+         * start get firmware file
+         */
+        http.begin( url );
+    }
+    else if( strstr( url, "https://" ) ) {
+        /**
+         * setup ssl/tls layer
+         */
+        sslclient = new WiFiClientSecure;
+        sslclient->setInsecure();
+        /*
+         * start get firmware file
+         */
+        http.begin( *sslclient, url );
+    }
+    else {
+        log_e("url type not supported, only http:// or https://");
+        return( false );
+    }
+    /**
+     * start GET request
+     */
     int httpCode = http.GET();
     /**
      * check return code ok
@@ -208,9 +258,15 @@ bool http_ota_start_uncompressed( const char* url, const char* md5 ) {
         ret = false;        
     }
     /**
-     * close http connection
+     * terminate http client
      */
     http.end();
+    /**
+     * terminate ssl/tls layer if exist
+     */
+    if( sslclient ) {
+        sslclient->stop();
+    }
     /**
      * check if written bytes equal to downloaded bytes
      */

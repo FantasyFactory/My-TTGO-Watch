@@ -27,28 +27,31 @@
 
 #include "gui/gui.h"
 
+#include "gui/mainbar/setup_tile/watchface/config/watchface_expr.h"
+
 #include "hardware/hardware.h"
 #include "hardware/powermgm.h"
 
 #include "app/weather/weather.h"
 #include "app/stopwatch/stopwatch_app.h"
-#include "app/corona_app_detector/corona_app_detector.h"
 #include "app/alarm_clock/alarm_clock.h"
-#include "app/crypto_ticker/crypto_ticker.h"
 #include "app/sailing/sailing.h"
 #include "app/osmand/osmand_app.h"
 #include "app/IRController/IRController.h"
-//#include "app/powermeter/powermeter_app.h"
-//#include "app/example_app/example_app.h"
+#include "app/fx_rates/fx_rates.h"
+#include "app/activity/activity.h"
+#include "app/calendar/calendar.h"
+#include "app/powermeter/powermeter_app.h"
 #include "app/my_basic/my_basic_app.h"
 //#include "app/image_ticker/image_ticker.h"
 #include "app/prayer_app/prayer_app.h"
 
-#include "app/fx_rates/fx_rates.h"
-#include "app/activity/activity.h"
 #include "app/FindPhone/FindPhone.h"
 #include "app/gps_status/gps_status.h"
+#include "app/osmmap/osmmap_app.h"
 #include "app/wifimon/wifimon_app.h"
+#include "app/calc/calc_app.h"
+#include "app/kodi_remote/kodi_remote_app.h"
 
 void setup() {
     /**
@@ -72,20 +75,24 @@ void setup() {
      * inlude your header file
      * and call your app setup
      */
+    osmmap_app_setup();
     weather_app_setup();
     stopwatch_app_setup();
     alarm_clock_setup();
     activity_app_setup();
+    calendar_app_setup();
     gps_status_setup();
-    crypto_ticker_setup();
     sailing_setup();
     osmand_app_setup();
     IRController_setup();
     fxrates_app_setup();
-    corona_app_detector_setup();
-    //powermeter_app_setup();
+    powermeter_app_setup();
+    my_basic_app_setup();
 	FindPhone_setup();
-    //example_app_setup();
+    wifimon_app_setup();
+    calc_app_setup();
+    kodi_remote_app_setup();
+    watchface_expr_setup();
     /**
      * post hardware setup
      * 

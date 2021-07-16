@@ -23,9 +23,17 @@ public:
    */
   bool load();
   /**
+   * @brief Load settings from file with a custom json size
+   */
+  bool load( uint32_t size );
+  /**
    * @brief Save settings to file
    */
   bool save();
+  /**
+   * @brief Save settings to file with a custom json size
+   */
+  bool save( uint32_t size );
   /**
    * @brief print out json
    */
@@ -36,7 +44,7 @@ protected:
   virtual bool onSave(JsonDocument& document) = 0;
   virtual bool onLoad(JsonDocument& document) = 0;
   virtual bool onDefault( void ) = 0;
-  virtual size_t getJsonBufferSize() { return 4096; }
+  virtual size_t getJsonBufferSize() { return 8192; }
 
 protected:
   char fileName[MAX_CONFIG_FILE_NAME_LENGTH];

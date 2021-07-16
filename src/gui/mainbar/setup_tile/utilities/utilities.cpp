@@ -23,17 +23,21 @@
 #include "utilities.h"
 #include "esp_system.h"//Needed for reset types
 #include <Arduino.h>
+#include "gps_test_data.h"
 
 #include "gui/mainbar/mainbar.h"
 #include "gui/mainbar/setup_tile/setup_tile.h"
 #include "gui/statusbar.h"
 #include "gui/setup.h"
+#include "gui/widget_factory.h"
 #include "gui/widget_styles.h"
 
 #include "hardware/motor.h"
 #include "hardware/display.h"
+#include "hardware/gpsctl.h"
 
-
+lv_task_t *_gps_test_data_task = NULL;
+static volatile bool gps_test_data_start_trigger = false;
 
 lv_obj_t *utilities_tile=NULL;
 lv_style_t utilities_style;
@@ -41,19 +45,16 @@ uint32_t utilities_tile_num;
 
 lv_obj_t *reboot_btn = NULL;
 lv_obj_t *poweroff_btn = NULL;
-
 lv_obj_t *format_spiffs_btn = NULL;
-
+lv_obj_t *gps_test_data_btn = NULL;
 lv_obj_t *SpiffsWarningBox = NULL;
+lv_obj_t *gps_test_data_btn_label = NULL;
 
 static lv_style_t style_modal;
 
-
-LV_IMG_DECLARE(exit_32px);
 LV_IMG_DECLARE(utilities_64px);
 
 static void enter_utilities_event_cb( lv_obj_t * obj, lv_event_t event );
-static void exit_utilities_event_cb( lv_obj_t * obj, lv_event_t event );
 
 static void SpiffsWarningBox_event_handler( lv_obj_t * obj, lv_event_t event );
 static void format_SPIFFS_utilities_event_cb( lv_obj_t * obj, lv_event_t event );
@@ -62,6 +63,9 @@ static void format_SPIFFS(void);
 static void reboot_utilities_event_cb( lv_obj_t * obj, lv_event_t event );
 static void poweroff_utilities_event_cb( lv_obj_t * obj, lv_event_t event );
 
+static void gps_test_data_utilities_event_cb( lv_obj_t * obj, lv_event_t event );
+
+void gps_test_data_task( lv_task_t * task );
 
 void utilities_tile_setup( void ) {
     // get an app tile and copy mainstyle
@@ -73,19 +77,8 @@ void utilities_tile_setup( void ) {
     icon_t *utilities_setup_icon = setup_register( "Utilities", &utilities_64px, enter_utilities_event_cb );
     setup_hide_indicator( utilities_setup_icon );
 
-    lv_obj_t *exit_btn = lv_imgbtn_create( utilities_tile, NULL);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_RELEASED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_PRESSED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_RELEASED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_PRESSED, &exit_32px);
-    lv_obj_add_style( exit_btn, LV_IMGBTN_PART_MAIN, &utilities_style );
-    lv_obj_align( exit_btn, utilities_tile, LV_ALIGN_IN_TOP_LEFT, 10, STATUSBAR_HEIGHT + 10 );
-    lv_obj_set_event_cb( exit_btn, exit_utilities_event_cb );
-    
-    lv_obj_t *exit_label = lv_label_create( utilities_tile, NULL);
-    lv_obj_add_style( exit_label, LV_OBJ_PART_MAIN, &utilities_style  );
-    lv_label_set_text( exit_label, "System Utilities");
-    lv_obj_align( exit_label, exit_btn, LV_ALIGN_OUT_RIGHT_MID, 5, 0 );
+    lv_obj_t *header = wf_add_settings_header( utilities_tile, "System Utilities" );
+    lv_obj_align( header, utilities_tile, LV_ALIGN_IN_TOP_LEFT, 10, STATUSBAR_HEIGHT + 10 );
 
     //Spiffs:
     //Add button for dump spiffs details to serial including config files
@@ -97,10 +90,18 @@ void utilities_tile_setup( void ) {
     lv_obj_set_event_cb( format_spiffs_btn, format_SPIFFS_utilities_event_cb );
     lv_obj_set_size( format_spiffs_btn, 80, 60);
     lv_obj_add_style( format_spiffs_btn, LV_BTN_PART_MAIN, ws_get_button_style() );
-    lv_obj_align( format_spiffs_btn, utilities_tile, LV_ALIGN_CENTER, 0, -15);
+    lv_obj_align( format_spiffs_btn, utilities_tile, LV_ALIGN_IN_LEFT_MID, 5, -15);
     lv_obj_t *format_spiffs_btn_label = lv_label_create( format_spiffs_btn, NULL );
     lv_label_set_text( format_spiffs_btn_label, "Format\nSPIFFS");
     
+    gps_test_data_btn = lv_btn_create( utilities_tile, NULL);
+    lv_obj_set_event_cb( gps_test_data_btn, gps_test_data_utilities_event_cb );
+    lv_obj_set_size( gps_test_data_btn, 80, 60);
+    lv_obj_add_style( gps_test_data_btn, LV_BTN_PART_MAIN, ws_get_button_style() );
+    lv_obj_align( gps_test_data_btn, utilities_tile, LV_ALIGN_IN_RIGHT_MID, -5, -15);
+    gps_test_data_btn_label = lv_label_create( gps_test_data_btn, NULL );
+    lv_label_set_text( gps_test_data_btn_label, "send GPS\ntest data");
+
     //Add button for reboot
     reboot_btn = lv_btn_create( utilities_tile, NULL);
     lv_obj_set_size(reboot_btn, 70, 40);
@@ -171,6 +172,8 @@ void utilities_tile_setup( void ) {
     }
     lv_label_set_align( last_reason_label, LV_LABEL_ALIGN_CENTER );
     lv_obj_align( last_reason_label, last_reboot_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 5 );//Now that the text has changed, align it.
+
+    _gps_test_data_task = lv_task_create( gps_test_data_task, 1000, LV_TASK_PRIO_MID, NULL );
 }
 
 static void enter_utilities_event_cb( lv_obj_t * obj, lv_event_t event ) {
@@ -180,13 +183,6 @@ static void enter_utilities_event_cb( lv_obj_t * obj, lv_event_t event ) {
     }
 }
 
-
-static void exit_utilities_event_cb( lv_obj_t * obj, lv_event_t event ) {
-    switch( event ) {
-        case( LV_EVENT_CLICKED ):       mainbar_jump_to_tilenumber( setup_get_tile_num(), LV_ANIM_OFF );
-                                        break;
-    }
-}
 //********************************SPIFFS stuff
 
 static void SpiffsWarningBox_event_handler( lv_obj_t * obj, lv_event_t event ){
@@ -288,5 +284,75 @@ static void poweroff_utilities_event_cb( lv_obj_t * obj, lv_event_t event ) {
                                         log_i("SPIFFS unmounted!");
                                         delay(500);
                                         ttgo->power->shutdown();
+    }
+}
+
+static void gps_test_data_utilities_event_cb( lv_obj_t * obj, lv_event_t event ) {
+    switch( event ) {
+        case( LV_EVENT_CLICKED ):       
+            gps_test_data_start_trigger = true;
+            break;
+    }
+}
+
+void gps_test_data_task( lv_task_t * task ) {
+    static bool task_is_running = false;
+    static uint8_t *gps_data = NULL;
+    /**
+     * set startcondition
+     */
+    if ( gps_test_data_start_trigger ) {
+        if ( task_is_running ) {
+            task_is_running = false;
+            gps_data = NULL;
+            lv_label_set_text( gps_test_data_btn_label, "send GPS\ntest data");
+        }
+        else {
+            if( !gps_data )
+                gps_data = (uint8_t*)gps_test_data_csv;
+            task_is_running = true;
+            lv_label_set_text( gps_test_data_btn_label, "stop GPS\ntest data");
+        }        
+        gps_test_data_start_trigger = false;
+    }
+    /**
+     * check if task running
+     */
+    if ( task_is_running ) {
+        if ( gps_data ) {
+            uint8_t line[64]="";
+            uint8_t *line_p = line;
+            double lat = 0;
+            double lon = 0;
+            double altitude = 0;
+            /**
+             * read line
+             */
+            while( *gps_data != '\r' && *gps_data != '\n' && *gps_data != '\0' ) {
+                *line_p = *gps_data;
+                line_p++;
+                gps_data++;
+            }
+            /**
+             * check abort condition, restart
+             */
+            if ( *gps_data == '\0' ) {
+                gps_data = (uint8_t*)gps_test_data_csv;
+            }
+            else {
+                gps_data++;
+            }
+            *line_p = '\0';
+            /**
+             * pharse string
+             */
+            if( strlen( (const char*)line ) > 10 ) {
+                lon = atof( (const char*)line );
+                lat = atof( (const char*)strchr( (const char*)line, ',' ) + 1 );
+                altitude = atof( (const char*)(const char*)strrchr( (const char*)line, ',' ) + 1 );
+                gpsctl_set_location( lat, lon, altitude, GPS_SOURCE_FAKE, false );
+                log_d("gps-data: %s (%f,%f,%f)", line, lon, lat, altitude );
+            }
+        }
     }
 }

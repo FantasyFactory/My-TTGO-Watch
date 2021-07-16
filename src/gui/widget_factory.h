@@ -65,6 +65,7 @@ lv_obj_t * wf_add_tile_footer_container(lv_obj_t *parent_tile, lv_layout_t layou
  * @return  returns pointer to the added object
  */
 lv_obj_t * wf_add_label(lv_obj_t *parent, char const * text);
+lv_obj_t * wf_add_label_container(lv_obj_t *parent, char const * text);
 
 /**
  * @brief   Creates and adds a roller object to a container
@@ -82,10 +83,11 @@ lv_obj_t * wf_add_roller(lv_obj_t *parent, char const * data, lv_roller_mode_t m
  * @brief   Creates and adds a switch object to a container
  *
  * @param   parent  pointer to a parent container
+ * @param   on      default value
  *
  * @return  returns pointer to the added object
  */
-lv_obj_t * wf_add_switch(lv_obj_t *parent);
+lv_obj_t * wf_add_switch(lv_obj_t *parent, bool on = false);
 
 /**
  * @brief   Creates and adds a container with a label and a switch to a container
@@ -97,17 +99,93 @@ lv_obj_t * wf_add_switch(lv_obj_t *parent);
  * @return  returns pointer to the added container
  */
 lv_obj_t * wf_add_labeled_switch(lv_obj_t *parent, char const * text, lv_obj_t ** ret_switch_obj);
-
+lv_obj_t * wf_add_labeled_switch(lv_obj_t *parent, char const * text, lv_obj_t ** ret_switch_obj, bool state, lv_event_cb_t event_cb );
 /**
  * @brief   Creates and adds an image button to a container
  *
- * @param   parent  pointer to a parent container
- * @param   image reference to image description
- * @param   event_cb    the button click event function
+ * @param   parent   pointer to a parent container
+ * @param   image    reference to image description
+ * @param   event_cb the button click event function
+ * @param   style    style to apply
  *
  * @return  returns pointer to the added object
  */
-lv_obj_t * wf_add_image_button(lv_obj_t *parent, lv_img_dsc_t const &image, lv_event_cb_t event_cb);
+lv_obj_t * wf_add_image_button(lv_obj_t *parent, lv_img_dsc_t const &image, lv_event_cb_t event_cb, lv_style_t *style=NULL);
+
+/**
+ * @brief   Creates and adds an exit button to a container
+ *
+ * @param   parent   pointer to a parent container
+ * @param   event_cb the button click event function
+ * @param   style    style to apply
+ *
+ * @return  returns pointer to the added object
+ */
+lv_obj_t * wf_add_exit_button(lv_obj_t *parent, lv_event_cb_t event_cb, lv_style_t *style=NULL);
+
+/**
+ * @brief   Creates and adds an exit button to a container with default exit callback
+ *
+ * @param   parent   pointer to a parent container
+ * @param   style    style to apply
+ *
+ * @return  returns pointer to the added object
+ */
+lv_obj_t * wf_add_exit_button(lv_obj_t *parent, lv_style_t *style=NULL);
+
+/**
+ * @brief   Creates and adds an add button to a container
+ *
+ * @param   parent   pointer to a parent container
+ * @param   event_cb the button click event function
+ * @param   style    style to apply
+ *
+ * @return  returns pointer to the added object
+ */
+lv_obj_t * wf_add_add_button(lv_obj_t *parent, lv_event_cb_t event_cb, lv_style_t *style = NULL );
+
+/**
+ * @brief   Creates and adds an trash button to a container
+ *
+ * @param   parent   pointer to a parent container
+ * @param   event_cb the button click event function
+ * @param   style    style to apply
+ *
+ * @return  returns pointer to the added object
+ */
+lv_obj_t * wf_add_trash_button(lv_obj_t *parent, lv_event_cb_t event_cb, lv_style_t *style = NULL );
+
+/**
+ * @brief   Creates and adds an menu button to a container
+ *
+ * @param   parent   pointer to a parent container
+ * @param   event_cb the button click event function
+ * @param   style    style to apply
+ *
+ * @return  returns pointer to the added object
+ */
+lv_obj_t * wf_add_menu_button(lv_obj_t *parent, lv_event_cb_t event_cb, lv_style_t *style = NULL );
+
+/**
+ * @brief   Creates and adds an refresh button to a container
+ *
+ * @param   parent   pointer to a parent container
+ * @param   event_cb the button click event function
+ * @param   style    style to apply
+ *
+ * @return  returns pointer to the added object
+ */
+lv_obj_t * wf_add_refresh_button(lv_obj_t *parent, lv_event_cb_t event_cb, lv_style_t *style = NULL );
+/**
+ * @brief   Creates and adds an setup button to a container
+ *
+ * @param   parent   pointer to a parent container
+ * @param   event_cb the button click event function
+ * @param   style    style to apply
+ *
+ * @return  returns pointer to the added object
+ */
+lv_obj_t * wf_add_setup_button(lv_obj_t *parent, lv_event_cb_t event_cb, lv_style_t *style = NULL);
 
 /**
  * @brief   Creates and adds an labeled button to a container
@@ -132,6 +210,18 @@ lv_obj_t * wf_add_button(lv_obj_t *parent, char const * label, int width, int he
  * @return  returns pointer to the added container
  */
 lv_obj_t * wf_add_settings_header(lv_obj_t *parent, char const * title, lv_obj_t ** ret_back_btn);
+lv_obj_t * wf_add_settings_header(lv_obj_t *parent, char const * title, lv_event_cb_t event_cb);
+
+/**
+ * @brief   Creates and adds header container for settings dialogs with a default exit callback
+ *
+ * @param   parent  pointer to a parent container
+ * @param   title   dialog name (usually the app name)
+ *
+ * @return  returns pointer to the added container
+ */
+lv_obj_t * wf_add_settings_header(lv_obj_t *parent, char const * title);
+lv_obj_t *wf_get_settings_header_title(lv_obj_t *parent);
 
 /**
  * @brief   Creates and adds an image to a container

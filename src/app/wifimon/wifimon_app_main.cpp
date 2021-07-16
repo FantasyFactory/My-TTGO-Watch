@@ -25,6 +25,10 @@
 #include "esp_wifi.h"
 
 #include "hardware/wifictl.h"
+<<<<<<< HEAD
+=======
+#include "hardware/display.h"
+>>>>>>> a994d976a82307d033f387326fa696c623b59f19
 
 #include "wifimon_app.h"
 #include "wifimon_app_main.h"
@@ -35,6 +39,7 @@
 #include "gui/statusbar.h"
 #include "gui/keyboard.h"
 #include "gui/widget_styles.h"
+<<<<<<< HEAD
 
 lv_obj_t *wifimon_app_main_tile = NULL;
 lv_obj_t * chart;
@@ -54,11 +59,36 @@ static void exit_wifimon_app_main_event_cb( lv_obj_t * obj, lv_event_t event );
 static void enter_wifimon_app_next_event_cb( lv_obj_t * obj, lv_event_t event );
 
 void wifimon_app_task( lv_task_t * task );
+=======
+#include "gui/widget_factory.h"
+
+lv_obj_t *wifimon_app_main_tile = NULL;
+lv_obj_t *chart = NULL;
+lv_obj_t *channel_select = NULL; 
+lv_chart_series_t *ser1 = NULL;
+lv_chart_series_t *ser2 = NULL;
+lv_chart_series_t *ser3 = NULL;
+lv_style_t wifimon_app_main_style;
+lv_task_t *_wifimon_app_task = NULL;
+int wifimon_display_timeout = 0;
+
+LV_IMG_DECLARE(exit_dark_48px);
+LV_IMG_DECLARE(wifimon_app_32px);
+LV_FONT_DECLARE(Ubuntu_72px);
+
+void wifimon_sniffer_packet_handler( void* buff, wifi_promiscuous_pkt_type_t type );
+static void exit_wifimon_app_main_event_cb( lv_obj_t * obj, lv_event_t event );
+static void wifimon_sniffer_set_channel( uint8_t channel );
+static void wifimon_app_task( lv_task_t * task );
+static void wifimon_activate_cb( void );
+static void wifimon_hibernate_cb( void );
+>>>>>>> a994d976a82307d033f387326fa696c623b59f19
 
 uint8_t level = 0, channel = 1;
 int data = 0, mgmt = 0, misc = 0; 
 static wifi_country_t wifi_country = {.cc="CN", .schan = 1, .nchan = 13}; 
 
+<<<<<<< HEAD
 typedef struct {
   unsigned frame_ctrl:16;
   unsigned duration_id:16;
@@ -103,6 +133,35 @@ static void event_handler(lv_obj_t * obj, lv_event_t event)
          lv_roller_get_selected_str(obj, buf, sizeof(buf));
          printf("Selected: %d\n", atoi(buf));
          wifi_sniffer_set_channel(atoi(buf));
+=======
+void wifimon_sniffer_packet_handler( void* buff, wifi_promiscuous_pkt_type_t type ) {
+    switch( type ) {
+        case WIFI_PKT_MGMT: 
+            mgmt++;
+            break;
+        case WIFI_PKT_DATA:
+            data++; 
+            break; 
+        default:  
+            misc++;
+            break;
+    }
+}
+
+static void wifimon_sniffer_set_channel( uint8_t channel ) {
+    esp_wifi_set_channel( channel, WIFI_SECOND_CHAN_NONE );
+    log_i("set wifi channel: %d", channel );
+}
+
+static void wifimon_channel_select_event_handler( lv_obj_t * obj, lv_event_t event ) {
+    switch( event ) {
+        case LV_EVENT_VALUE_CHANGED: {
+            char buf[32];
+            lv_roller_get_selected_str( obj, buf, sizeof( buf ) );
+            wifimon_sniffer_set_channel( atoi(buf) );
+            break;
+        }
+>>>>>>> a994d976a82307d033f387326fa696c623b59f19
     }
 }
 
@@ -110,6 +169,7 @@ void wifimon_app_main_setup( uint32_t tile_num ) {
 
     wifimon_app_main_tile = mainbar_get_tile_obj( tile_num );
     lv_style_copy( &wifimon_app_main_style, ws_get_mainbar_style() );
+<<<<<<< HEAD
 
     lv_obj_t * exit_btn = lv_imgbtn_create( wifimon_app_main_tile, NULL);
     lv_imgbtn_set_src(exit_btn, LV_BTN_STATE_RELEASED, &exit_32px);
@@ -172,10 +232,57 @@ void wifimon_app_main_setup( uint32_t tile_num ) {
     lv_label_set_text(label1, "#ff0000 - mgmt#\n#11ff00 - data#"); 
     lv_obj_set_width(label1, 150);
     lv_obj_align(label1, NULL, LV_ALIGN_IN_BOTTOM_RIGHT, 0, -5);
+=======
+    /**
+     * add chart widget
+     */
+    chart = lv_chart_create( wifimon_app_main_tile, NULL );
+    lv_obj_set_size( chart, 240, 240 );
+    lv_obj_align( chart, NULL, LV_ALIGN_IN_TOP_LEFT, 0, 0 );
+    lv_chart_set_type( chart, LV_CHART_TYPE_LINE );  
+    lv_chart_set_point_count( chart, 32 );
+    lv_obj_set_style_local_bg_opa( chart, LV_CHART_PART_SERIES, LV_STATE_DEFAULT, LV_OPA_50 );
+    lv_obj_set_style_local_bg_grad_dir( chart, LV_CHART_PART_SERIES, LV_STATE_DEFAULT, LV_GRAD_DIR_VER );
+    lv_obj_set_style_local_bg_main_stop( chart, LV_CHART_PART_SERIES, LV_STATE_DEFAULT, 255 );
+    lv_obj_set_style_local_bg_grad_stop( chart, LV_CHART_PART_SERIES, LV_STATE_DEFAULT, 0 );
+    /**
+     * add chart series
+     */
+    ser1 = lv_chart_add_series( chart, LV_COLOR_RED );
+    ser2 = lv_chart_add_series( chart, LV_COLOR_GREEN );
+    ser3 = lv_chart_add_series( chart, LV_COLOR_YELLOW );
+    /**
+     * add exit button
+     */
+    lv_obj_t * exit_btn = wf_add_image_button( wifimon_app_main_tile, exit_dark_48px, exit_wifimon_app_main_event_cb, &wifimon_app_main_style );
+    lv_obj_align( exit_btn, wifimon_app_main_tile, LV_ALIGN_IN_BOTTOM_LEFT, 10, -10 );
+    /**
+     * add channel select roller
+     */
+    channel_select = lv_roller_create(wifimon_app_main_tile, NULL);
+    lv_roller_set_options( channel_select, "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13", LV_ROLLER_MODE_INIFINITE );
+    lv_roller_set_visible_row_count( channel_select, 5 );
+    lv_obj_align( channel_select, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 0);
+    lv_obj_set_event_cb( channel_select, wifimon_channel_select_event_handler );
+    /**
+     * add chart series label
+     */
+    lv_obj_t * chart_series_label = lv_label_create( wifimon_app_main_tile, NULL );
+    lv_label_set_long_mode( chart_series_label, LV_LABEL_LONG_BREAK );
+    lv_label_set_recolor( chart_series_label, true );
+    lv_label_set_align( chart_series_label, LV_LABEL_ALIGN_RIGHT );       
+    lv_label_set_text( chart_series_label, "#ffff00 - misc#\n#ff0000 - mgmt#\n#11ff00 - data#"); 
+    lv_obj_set_width( chart_series_label, 70 );
+    lv_obj_align( chart_series_label, NULL, LV_ALIGN_IN_TOP_RIGHT, -5, 5);
+
+    mainbar_add_tile_activate_cb( tile_num, wifimon_activate_cb );
+    mainbar_add_tile_hibernate_cb( tile_num, wifimon_hibernate_cb );
+>>>>>>> a994d976a82307d033f387326fa696c623b59f19
 }
 
 static void exit_wifimon_app_main_event_cb( lv_obj_t * obj, lv_event_t event ) {
     switch( event ) {
+<<<<<<< HEAD
         case( LV_EVENT_CLICKED ):     if(_wifimon_app_task != NULL)
                                       {
                                            lv_task_del(_wifimon_app_task);
@@ -185,10 +292,14 @@ static void exit_wifimon_app_main_event_cb( lv_obj_t * obj, lv_event_t event ) {
                                       wifictl_off();
                                       wifictl_on();
                                       mainbar_jump_to_maintile( LV_ANIM_OFF );
+=======
+        case( LV_EVENT_CLICKED ):     mainbar_jump_back();
+>>>>>>> a994d976a82307d033f387326fa696c623b59f19
                                       break;
     }
 }
 
+<<<<<<< HEAD
 static void enter_wifimon_app_next_event_cb( lv_obj_t * obj, lv_event_t event ) {
     switch( event ) {
         case( LV_EVENT_CLICKED ):     wifictl_off();
@@ -222,3 +333,71 @@ void wifimon_app_task( lv_task_t * task ) {
     mgmt = 0;
     misc = 0; 
 }
+=======
+static void wifimon_hibernate_cb( void ) {
+    if(_wifimon_app_task != NULL) {
+        lv_task_del(_wifimon_app_task);
+        _wifimon_app_task = NULL;
+    }  
+    esp_wifi_set_promiscuous( false ); 
+    wifictl_off();
+    /**
+     * restore display timeout time
+     */
+    display_set_timeout( wifimon_display_timeout );
+}
+
+static void wifimon_activate_cb( void ) {
+    /**
+     * restart wifi
+     */
+    wifictl_off();
+    /**
+     * setup promiscuous mode
+     */
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_wifi_init( &cfg );
+    esp_wifi_set_country( &wifi_country );
+    esp_wifi_set_mode( WIFI_MODE_NULL ); 
+    esp_wifi_start();
+    esp_wifi_set_promiscuous( true );
+    esp_wifi_set_promiscuous_rx_cb( &wifimon_sniffer_packet_handler );
+    lv_roller_set_selected( channel_select, 0, LV_ANIM_OFF );
+    wifimon_sniffer_set_channel( 1 );
+    /**
+     * start stats fetch task
+     */
+    _wifimon_app_task = lv_task_create( wifimon_app_task, 500, LV_TASK_PRIO_MID, NULL );
+    /**
+     * save display timeout time
+     */
+    wifimon_display_timeout = display_get_timeout();
+    display_set_timeout( DISPLAY_MAX_TIMEOUT );
+}
+
+static void wifimon_app_task( lv_task_t * task ) {
+    /**
+     * limit scale
+     */
+    if( mgmt > 100 ) mgmt = 100; 
+    if( data > 100 ) data = 100; 
+    if( misc > 100 ) misc = 100; 
+    /**
+     * add seria data
+     */
+    lv_chart_set_next(chart, ser1, mgmt);
+    lv_chart_set_next(chart, ser2, data);
+    lv_chart_set_next(chart, ser3, misc);
+    /**
+     * refresh chart
+     */
+    lv_chart_refresh(chart);
+    /**
+     * reset packet counter
+     */
+    data = 0;
+    mgmt = 0;
+    misc = 0; 
+}
+
+>>>>>>> a994d976a82307d033f387326fa696c623b59f19

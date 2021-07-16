@@ -26,7 +26,9 @@ extern "C"
 }
 
 #include <TTGO.h>
-#include "hardware/pmu.h"
+//#include "hardware/pmu.h"
+//#include "hardware/motor.h"
+#include "lvgl/lvgl.h"
 
 
 static void _unref(struct mb_interpreter_t* s, void* d) {
@@ -199,7 +201,17 @@ int bas_delay(struct mb_interpreter_t* s, void** l) {
   mb_check(mb_attempt_open_bracket(s, l));
   mb_check(mb_pop_int(s, l, &n));
   mb_check(mb_attempt_close_bracket(s, l));
-  delay(n);
+
+  
+  log_i("Delay for %d millis, tick %d , ticks %d \n", n, 10, n/10);
+  for (n=200; n>0; n--) {
+    lv_task_handler();
+    //vTaskDelay(10);
+    delay(10);
+  }
+  //vTaskDelay(n/portTICK_PERIOD_MS);
+  //
+
   return result;
 }
 
@@ -370,9 +382,23 @@ int bas_getbattpct(struct mb_interpreter_t* s, void** l) {
   mb_check(mb_attempt_close_bracket(s, l));
 
   int r;
-  r=pmu_get_battery_percent();
+  //r=pmu_get_battery_percent();
   Serial.printf("GetBatteryPct=%d%%", r);
   mb_check(mb_push_int(s, l, r));
+
+  return result;
+}
+
+int bas_motor_vibe(struct mb_interpreter_t* s, void** l) {
+  int result = MB_FUNC_OK;
+  int64_t n = 0;
+
+  mb_assert(s && l);
+  mb_check(mb_attempt_open_bracket(s, l));
+  mb_check(mb_pop_int(s, l, &n));
+  mb_check(mb_attempt_close_bracket(s, l));
+
+  //motor_vibe( 1 / 10 );
 
   return result;
 }
@@ -399,6 +425,7 @@ void enableArduinoBindings(struct mb_interpreter_t* bas)
 
   /**** TTGO Watch specific ***/
   mb_register_func(bas, "GetBatteryPct", bas_getbattpct);
+  mb_register_func(bas, "Motor", bas_motor_vibe);
 
 }
 

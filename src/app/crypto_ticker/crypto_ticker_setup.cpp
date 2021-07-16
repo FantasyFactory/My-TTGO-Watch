@@ -29,6 +29,7 @@
 #include "gui/mainbar/mainbar.h"
 #include "gui/statusbar.h"
 #include "gui/keyboard.h"
+#include "gui/widget_factory.h"
 #include "gui/widget_styles.h"
 
 lv_obj_t *crypto_ticker_setup_tile = NULL;
@@ -36,8 +37,6 @@ lv_style_t crypto_ticker_setup_style;
 
 lv_obj_t *crypto_ticker_symbol_textfield = NULL;
 lv_obj_t *crypto_ticker_autosync_switch = NULL;
-
-LV_IMG_DECLARE(exit_32px);
 
 static void exit_crypto_ticker_setup_event_cb( lv_obj_t * obj, lv_event_t event );
 static void crypto_ticker_textarea_event_cb( lv_obj_t * obj, lv_event_t event );
@@ -52,30 +51,13 @@ void crypto_ticker_setup_setup( uint32_t tile_num ) {
     lv_style_copy( &crypto_ticker_setup_style, ws_get_setup_tile_style() );
     lv_obj_add_style( crypto_ticker_setup_tile, LV_OBJ_PART_MAIN, &crypto_ticker_setup_style );
 
-    lv_obj_t *exit_cont = lv_obj_create( crypto_ticker_setup_tile, NULL );
-    lv_obj_set_size( exit_cont, lv_disp_get_hor_res( NULL ) , 40);
-    lv_obj_add_style( exit_cont, LV_OBJ_PART_MAIN, &crypto_ticker_setup_style  );
-    lv_obj_align( exit_cont, crypto_ticker_setup_tile, LV_ALIGN_IN_TOP_MID, 0, 10 );
-
-    lv_obj_t *exit_btn = lv_imgbtn_create( exit_cont, NULL);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_RELEASED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_PRESSED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_RELEASED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_PRESSED, &exit_32px);
-    lv_obj_add_style( exit_btn, LV_IMGBTN_PART_MAIN, &crypto_ticker_setup_style );
-    lv_obj_align( exit_btn, exit_cont, LV_ALIGN_IN_TOP_LEFT, 10, 0 );
-    lv_obj_set_event_cb( exit_btn, exit_crypto_ticker_setup_event_cb );
-    
-    lv_obj_t *exit_label = lv_label_create( exit_cont, NULL);
-    lv_obj_add_style( exit_label, LV_OBJ_PART_MAIN, &crypto_ticker_setup_style  );
-    lv_label_set_text( exit_label, "Crypto Ticker");
-    lv_obj_align( exit_label, exit_btn, LV_ALIGN_OUT_RIGHT_MID, 5, 0 );
-
+    lv_obj_t *header = wf_add_settings_header( crypto_ticker_setup_tile, "Crypto Ticker", exit_crypto_ticker_setup_event_cb );
+    //lv_obj_align( header, crypto_ticker_setup_tile, LV_ALIGN_IN_TOP_LEFT, 10, 10 );
 
     lv_obj_t *crypto_ticker_symbol_cont = lv_obj_create( crypto_ticker_setup_tile, NULL );
     lv_obj_set_size(crypto_ticker_symbol_cont, lv_disp_get_hor_res( NULL ) , 40);
     lv_obj_add_style( crypto_ticker_symbol_cont, LV_OBJ_PART_MAIN, &crypto_ticker_setup_style  );
-    lv_obj_align( crypto_ticker_symbol_cont, exit_cont, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 20 );
+    lv_obj_align( crypto_ticker_symbol_cont, header, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 20 );
     lv_obj_t *crypto_ticker_symbol_label = lv_label_create( crypto_ticker_symbol_cont, NULL);
     lv_obj_add_style( crypto_ticker_symbol_label, LV_OBJ_PART_MAIN, &crypto_ticker_setup_style  );
     lv_label_set_text( crypto_ticker_symbol_label, "Symbol");
@@ -95,10 +77,7 @@ void crypto_ticker_setup_setup( uint32_t tile_num ) {
     lv_obj_add_style( crypto_ticker_autosync_switch_cont, LV_OBJ_PART_MAIN, &crypto_ticker_setup_style  );
     lv_obj_align( crypto_ticker_autosync_switch_cont, crypto_ticker_symbol_cont, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 0 );
 
-    crypto_ticker_autosync_switch = lv_switch_create( crypto_ticker_autosync_switch_cont, NULL );
-    lv_obj_add_protect( crypto_ticker_autosync_switch, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( crypto_ticker_autosync_switch, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
-    crypto_ticker_config->autosync ? lv_switch_on( crypto_ticker_autosync_switch, LV_ANIM_ON ) : lv_switch_off( crypto_ticker_autosync_switch, LV_ANIM_ON );
+    crypto_ticker_autosync_switch = wf_add_switch( crypto_ticker_autosync_switch_cont, crypto_ticker_config->autosync );
     lv_obj_align( crypto_ticker_autosync_switch, crypto_ticker_autosync_switch_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0 );
     lv_obj_set_event_cb( crypto_ticker_autosync_switch, crypto_ticker_autosync_switch_event_cb );
 
@@ -111,10 +90,7 @@ void crypto_ticker_setup_setup( uint32_t tile_num ) {
     lv_obj_set_size( crypto_ticker_widget_cont, lv_disp_get_hor_res( NULL ), 30);
     lv_obj_add_style( crypto_ticker_widget_cont, LV_OBJ_PART_MAIN, &crypto_ticker_setup_style );
     lv_obj_align( crypto_ticker_widget_cont, crypto_ticker_autosync_switch_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 0 );
-    lv_obj_t *crypto_ticker_widget_onoff = lv_switch_create( crypto_ticker_widget_cont, NULL);
-    lv_obj_add_protect( crypto_ticker_widget_onoff, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( crypto_ticker_widget_onoff, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
-    lv_switch_off( crypto_ticker_widget_onoff, LV_ANIM_ON);
+    lv_obj_t *crypto_ticker_widget_onoff = wf_add_switch( crypto_ticker_widget_cont, false);
     lv_obj_align( crypto_ticker_widget_onoff, crypto_ticker_widget_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0);
     lv_obj_set_event_cb( crypto_ticker_widget_onoff, crypto_ticker_widget_onoff_event_handler);
     lv_obj_t *crypto_ticker_widget_label = lv_label_create( crypto_ticker_widget_cont, NULL);

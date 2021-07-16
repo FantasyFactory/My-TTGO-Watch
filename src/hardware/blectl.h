@@ -23,6 +23,10 @@
     #define _BLECTL_H
 
     #include "TTGO.h"
+
+    #include <BLEServer.h>
+    #include <BLEAdvertising.h>
+
     #include "callback.h"
     #include "hardware/config/blectlconfig.h"
 
@@ -51,6 +55,7 @@
     #define BLECTL_MSG                   _BV(10)        /** @brief event mask for blectl msg */
     #define BLECTL_MSG_SEND_SUCCESS      _BV(11)        /** @brief event mask msg send success */
     #define BLECTL_MSG_SEND_ABORT        _BV(12)        /** @brief event mask msg send abort */
+    #define BLECTL_MSG_JSON              _BV(13)        /** @brief event mask for blectl JSON msg */
     /**
      *  See the following for generating UUIDs:
      * https://www.uuidgenerator.net/
@@ -93,7 +98,7 @@
     #define DataLinkEscape          0x10
 
     #define BLECTL_CHUNKSIZE        20      /** @brief chunksize for send msg */
-    #define BLECTL_CHUNKDELAY       20      /** @brief chunk delay in ms for each msg chunk */
+    #define BLECTL_CHUNKDELAY       50      /** @brief chunk delay in ms for each msg chunk */
     #define BLECTL_MSG_MTU          512     /** @brief max msg size */
 
     /**
@@ -235,5 +240,13 @@
      * @param enable    true if enabled, false if disable
      */
     void blectl_set_autoon( bool autoon );
+    /**
+     * @brief get the raw BLE Server
+     */
+    BLEServer *blectl_get_ble_server( void );
+    /**
+     * @brief get the raw BLE Advertising
+     */
+    BLEAdvertising *blectl_get_ble_advertising( void );
 
 #endif // _BLECTL_H

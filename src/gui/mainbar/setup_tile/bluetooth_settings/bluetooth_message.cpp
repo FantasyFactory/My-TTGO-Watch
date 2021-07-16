@@ -26,6 +26,7 @@
 #include "gui/mainbar/setup_tile/setup_tile.h"
 #include "gui/app.h"
 #include "gui/widget.h"
+#include "gui/widget_factory.h"
 #include "gui/widget_styles.h"
 #include "gui/statusbar.h"
 #include "gui/sound/piep.h"
@@ -35,9 +36,9 @@
 #include "hardware/motor.h"
 #include "hardware/sound.h"
 
-#include "utils/json_psram_allocator.h"
 #include "utils/alloc.h"
 #include "utils/msg_chain.h"
+#include "quickglui/common/bluejsonrequest.h"
 
 // messages app and widget
 icon_t *messages_app = NULL;
@@ -105,6 +106,7 @@ bool bluetooth_message_event_cb( EventBits_t event, void *arg );
 const lv_img_dsc_t *bluetooth_message_find_img( const char * src_name );
 
 void bluetooth_add_msg_to_chain( const char *msg );
+static bool bluetooth_message_queue_msg( BluetoothJsonRequest &doc );
 bool bluetooth_message_queue_msg( const char *msg );
 bool bluetooth_delete_msg_from_chain( int32_t entry );
 int32_t bluetooth_get_msg_entrys( void );
@@ -157,48 +159,24 @@ void bluetooth_message_tile_setup( void ) {
     lv_obj_add_style( bluetooth_message_msg_label, LV_OBJ_PART_MAIN, &bluetooth_message_style );
     lv_label_set_text( bluetooth_message_msg_label, "");
 
-    lv_obj_t *exit_btn = lv_imgbtn_create( bluetooth_message_tile, NULL);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_RELEASED, &cancel_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_PRESSED, &cancel_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_RELEASED, &cancel_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_PRESSED, &cancel_32px);
-    lv_obj_add_style( exit_btn, LV_IMGBTN_PART_MAIN, &bluetooth_message_style );
+    lv_obj_t * exit_btn = wf_add_image_button( bluetooth_message_tile, cancel_32px, exit_bluetooth_message_event_cb, &bluetooth_message_style );
     lv_obj_align( exit_btn, bluetooth_message_tile, LV_ALIGN_IN_TOP_RIGHT, -10, 10 );
-    lv_obj_set_event_cb( exit_btn, exit_bluetooth_message_event_cb );
 
-    bluetooth_prev_msg_btn = lv_imgbtn_create( bluetooth_message_tile, NULL);
-    lv_imgbtn_set_src( bluetooth_prev_msg_btn, LV_BTN_STATE_RELEASED, &left_32px);
-    lv_imgbtn_set_src( bluetooth_prev_msg_btn, LV_BTN_STATE_PRESSED, &left_32px);
-    lv_imgbtn_set_src( bluetooth_prev_msg_btn, LV_BTN_STATE_CHECKED_RELEASED, &left_32px);
-    lv_imgbtn_set_src( bluetooth_prev_msg_btn, LV_BTN_STATE_CHECKED_PRESSED, &left_32px);
-    lv_obj_add_style( bluetooth_prev_msg_btn, LV_IMGBTN_PART_MAIN, &bluetooth_message_style );
+    bluetooth_prev_msg_btn = wf_add_image_button( bluetooth_message_tile, left_32px, bluetooth_prev_message_event_cb, &bluetooth_message_style );
     lv_obj_align( bluetooth_prev_msg_btn, bluetooth_message_tile, LV_ALIGN_IN_BOTTOM_LEFT, 5, -5 );
-    lv_obj_set_event_cb( bluetooth_prev_msg_btn, bluetooth_prev_message_event_cb );
 
-    bluetooth_next_msg_btn = lv_imgbtn_create( bluetooth_message_tile, NULL);
-    lv_imgbtn_set_src( bluetooth_next_msg_btn, LV_BTN_STATE_RELEASED, &right_32px);
-    lv_imgbtn_set_src( bluetooth_next_msg_btn, LV_BTN_STATE_PRESSED, &right_32px);
-    lv_imgbtn_set_src( bluetooth_next_msg_btn, LV_BTN_STATE_CHECKED_RELEASED, &right_32px);
-    lv_imgbtn_set_src( bluetooth_next_msg_btn, LV_BTN_STATE_CHECKED_PRESSED, &right_32px);
-    lv_obj_add_style( bluetooth_next_msg_btn, LV_IMGBTN_PART_MAIN, &bluetooth_message_style );
+    bluetooth_next_msg_btn = wf_add_image_button( bluetooth_message_tile, right_32px, bluetooth_next_message_event_cb, &bluetooth_message_style );
     lv_obj_align( bluetooth_next_msg_btn, bluetooth_message_tile, LV_ALIGN_IN_BOTTOM_RIGHT, -5, -5 );
-    lv_obj_set_event_cb( bluetooth_next_msg_btn, bluetooth_next_message_event_cb );
 
-    bluetooth_trash_msg_btn = lv_imgbtn_create( bluetooth_message_tile, NULL);
-    lv_imgbtn_set_src( bluetooth_trash_msg_btn, LV_BTN_STATE_RELEASED, &trash_32px);
-    lv_imgbtn_set_src( bluetooth_trash_msg_btn, LV_BTN_STATE_PRESSED, &trash_32px);
-    lv_imgbtn_set_src( bluetooth_trash_msg_btn, LV_BTN_STATE_CHECKED_RELEASED, &trash_32px);
-    lv_imgbtn_set_src( bluetooth_trash_msg_btn, LV_BTN_STATE_CHECKED_PRESSED, &trash_32px);
-    lv_obj_add_style( bluetooth_trash_msg_btn, LV_IMGBTN_PART_MAIN, &bluetooth_message_style );
+    bluetooth_trash_msg_btn = wf_add_image_button( bluetooth_message_tile, trash_32px, bluetooth_del_message_event_cb, &bluetooth_message_style );
     lv_obj_align( bluetooth_trash_msg_btn, bluetooth_prev_msg_btn, LV_ALIGN_OUT_RIGHT_MID, 15, 0 );
-    lv_obj_set_event_cb( bluetooth_trash_msg_btn, bluetooth_del_message_event_cb );
 
     bluetooth_msg_entrys_label = lv_label_create( bluetooth_message_tile, NULL );
     lv_obj_add_style( bluetooth_msg_entrys_label, LV_OBJ_PART_MAIN, &bluetooth_message_sender_style );
     lv_label_set_text( bluetooth_msg_entrys_label, "1/1");
     lv_obj_align( bluetooth_msg_entrys_label, bluetooth_next_msg_btn, LV_ALIGN_OUT_LEFT_MID, -5, 0 );
 
-    blectl_register_cb( BLECTL_MSG, bluetooth_message_event_cb, "bluetooth_message" );
+    blectl_register_cb( BLECTL_MSG_JSON, bluetooth_message_event_cb, "bluetooth_message" );
 
     messages_app = app_register( "messages", &message_64px, enter_bluetooth_messages_cb );
 }
@@ -267,8 +245,8 @@ static void bluetooth_del_message_event_cb( lv_obj_t * obj, lv_event_t event ) {
 
 bool bluetooth_message_event_cb( EventBits_t event, void *arg ) {
     switch( event ) {
-        case BLECTL_MSG:    
-            bluetooth_message_queue_msg( (const char*)arg );
+        case BLECTL_MSG_JSON:    
+            bluetooth_message_queue_msg( *(BluetoothJsonRequest*)arg );
             break;
     }
     return( true );
@@ -320,7 +298,7 @@ const lv_img_dsc_t *bluetooth_message_find_img( const char * src_name ) {
     return( &message_32px );
 }
 
-bool bluetooth_message_queue_msg( const char *msg ) {
+bool bluetooth_message_queue_msg( BluetoothJsonRequest &doc ) {
     bool retval = false;
     /*
      * check if showing messages allowed
@@ -329,70 +307,73 @@ bool bluetooth_message_queue_msg( const char *msg ) {
         return( retval );
     }
     /*
-     * allocate json memory and serialize msg
+     * if msg an notify msg?
      */
-    SpiRamJsonDocument doc( strlen( msg ) * 4 );
-    DeserializationError error = deserializeJson( doc, msg );
-    if ( error ) {
-        log_e("bluetooth message deserializeJson() failed: %s", error.c_str() );
-    }
-    else {
-        /*
-         * if msg an notify msg?
-         */        
-        if( !strcmp( doc["t"], "notify" ) ) {
-            /*
-             * add msg to the msg chain
-             */
-            bluetooth_msg_chain = msg_chain_add_msg( bluetooth_msg_chain, msg );
-            /*
-             * wakeup for showing msg/alert
-             */
-            powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
-            /*
-             * only alert or alret and showing msg
-             */
-            if ( blectl_get_show_notification() ) {
-                bluetooth_message_show_msg( msg_chain_get_entrys( bluetooth_msg_chain ) - 1 );
-                mainbar_jump_to_tilenumber( bluetooth_message_tile_num, LV_ANIM_OFF );
-            }
-            bluetooth_current_msg = msg_chain_get_entrys( bluetooth_msg_chain ) - 1;
-            sound_play_progmem_wav( piep_wav, piep_wav_len );
-            motor_vibe(10);
-            /*
-             * set msg icon indicator an the app icon
-             */
-            app_set_indicator( messages_app, ICON_INDICATOR_N );
-            /*
-             * allocate an widget if nor allocated
-             */
-            if ( messages_widget == NULL ) {
-                messages_widget = widget_register( "message", &message_48px, enter_bluetooth_messages_cb );
-            }
-            /*
-             * set widget icon indicator
-             */
-            switch ( msg_chain_get_entrys( bluetooth_msg_chain ) ) {
-                case 1:
-                            widget_set_indicator( messages_widget, ICON_INDICATOR_1 );
-                            app_set_indicator( messages_app, ICON_INDICATOR_1 );
-                            break;
-                case 2:
-                            widget_set_indicator( messages_widget, ICON_INDICATOR_2 );
-                            app_set_indicator( messages_app, ICON_INDICATOR_2 );
-                            break;
-                case 3:
-                            widget_set_indicator( messages_widget, ICON_INDICATOR_3 );
-                            app_set_indicator( messages_app, ICON_INDICATOR_3 );
-                            break;
-                default:
-                            widget_set_indicator( messages_widget, ICON_INDICATOR_N );
-                            app_set_indicator( messages_app, ICON_INDICATOR_N );
-            }
-            retval = true;
-        }
+    if( !strcmp( doc["t"], "notify" ) ) {
+        char msg[256];
+        serializeJson( doc, msg, sizeof(msg) );
+        retval = bluetooth_message_queue_msg( msg );
     }
     return( retval );
+}
+
+bool bluetooth_message_queue_msg( const char *msg ) {
+    if ( bluetooth_message_active == false ) {
+        return( false );
+    }
+    /*
+     * add msg to the msg chain
+     */
+    bluetooth_msg_chain = msg_chain_add_msg( bluetooth_msg_chain, msg );
+    /*
+     * wakeup for showing msg/alert
+     */
+    powermgm_set_event( POWERMGM_WAKEUP_REQUEST );
+    /*
+     * only alert or alret and showing msg
+     */
+    if ( blectl_get_show_notification() ) {
+        bluetooth_message_show_msg( msg_chain_get_entrys( bluetooth_msg_chain ) - 1 );
+        mainbar_jump_to_tilenumber( bluetooth_message_tile_num, LV_ANIM_OFF );
+    }
+    bluetooth_current_msg = msg_chain_get_entrys( bluetooth_msg_chain ) - 1;
+    sound_play_progmem_wav( piep_wav, piep_wav_len );
+    motor_vibe(10);
+    /*
+     * set msg icon indicator an the app icon
+     */
+    app_set_indicator( messages_app, ICON_INDICATOR_N );
+    /*
+     * allocate an widget if nor allocated
+     */
+    if ( messages_widget == NULL ) {
+        messages_widget = widget_register( "message", &message_48px, enter_bluetooth_messages_cb );
+    }
+    /*
+     * set widget icon indicator
+     */
+    switch ( msg_chain_get_entrys( bluetooth_msg_chain ) ) {
+        case 1:
+                    widget_set_indicator( messages_widget, ICON_INDICATOR_1 );
+                    app_set_indicator( messages_app, ICON_INDICATOR_1 );
+                    break;
+        case 2:
+                    widget_set_indicator( messages_widget, ICON_INDICATOR_2 );
+                    app_set_indicator( messages_app, ICON_INDICATOR_2 );
+                    break;
+        case 3:
+                    widget_set_indicator( messages_widget, ICON_INDICATOR_3 );
+                    app_set_indicator( messages_app, ICON_INDICATOR_3 );
+                    break;
+        default:
+                    widget_set_indicator( messages_widget, ICON_INDICATOR_N );
+                    app_set_indicator( messages_app, ICON_INDICATOR_N );
+    }
+    return( true );
+}
+
+int32_t bluetooth_get_number_of_msg( void ) {
+    return( bluetooth_current_msg < 0 ? 0 : bluetooth_current_msg );
 }
 
 void bluetooth_message_show_msg( int32_t entry ) {

@@ -287,3 +287,58 @@ void timesync_Task( void * pvParameters ) {
     log_i("finish time sync task, heap: %d", ESP.getFreeHeap() );
     vTaskDelete( NULL );
 }
+
+void timesync_get_current_timestring( char * buf, size_t buf_len ) {
+    time_t now;
+    struct tm info;
+    /*
+    * copy current time into now and convert it local time info
+    */
+    time( &now );
+    localtime_r( &now, &info );
+
+    int h = info.tm_hour;
+    int m = info.tm_min;
+
+    if ( timesync_get_24hr() ) {
+        snprintf( buf, buf_len, "%02d:%02d", h, m );
+    }
+    else {
+        if (h == 0) h = 12;
+        if (h > 12) h -= 12;
+        snprintf( buf, buf_len, "%d:%02d", h, m );
+    }
+}
+
+void timesync_get_current_datestring( char * buf, size_t buf_len ) {
+    time_t now;
+    struct tm info;
+    /*
+    * copy current time into now and convert it local time info
+    */
+    time( &now );
+    localtime_r( &now, &info );
+
+    strftime( buf, sizeof( buf_len ), "%a %d.%b %Y", &info );
+}
+
+bool timesync_is_between( struct tm start, struct tm end ) {
+    time_t now;
+    struct tm info;
+    /*
+    * copy current time into now and convert it local time info
+    */
+    time( &now );
+    localtime_r( &now, &info );
+
+    // differentiate between silencing over the day or night
+    if (start.tm_hour < end.tm_hour || (start.tm_hour == end.tm_hour && start.tm_min < end.tm_min)) {
+        bool startPassed = info.tm_hour > start.tm_hour || (info.tm_hour == start.tm_hour && info.tm_min > start.tm_min);
+        bool endPassed = info.tm_hour < end.tm_hour || (info.tm_hour == end.tm_hour && info.tm_min < end.tm_min);
+        return startPassed && endPassed;
+    } else {
+        bool startPassed = info.tm_hour > start.tm_hour || (info.tm_hour == start.tm_hour && info.tm_min > start.tm_min);
+        bool endPassed = info.tm_hour < end.tm_hour || (info.tm_hour == end.tm_hour && info.tm_min < end.tm_min);
+        return startPassed || endPassed;
+    }
+}

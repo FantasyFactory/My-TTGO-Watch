@@ -27,6 +27,7 @@
 #include "gui/mainbar/setup_tile/setup_tile.h"
 #include "gui/statusbar.h"
 #include "gui/setup.h"
+#include "gui/widget_factory.h"
 #include "gui/widget_styles.h"
 
 #include "hardware/display.h"
@@ -43,8 +44,8 @@ lv_obj_t *battery_silence_wakeup_switch = NULL;
 lv_obj_t *battery_percent_switch = NULL;
 lv_obj_t *battery_experimental_switch = NULL;
 lv_obj_t *battery_high_voltage_switch = NULL;
+lv_obj_t *battery_logging_switch = NULL;
 
-LV_IMG_DECLARE(exit_32px);
 LV_IMG_DECLARE(battery_icon_64px);
 LV_IMG_DECLARE(info_update_16px);
 
@@ -54,6 +55,7 @@ static void battery_silence_wakeup_switch_event_handler( lv_obj_t * obj, lv_even
 static void battery_percent_switch_event_handler( lv_obj_t * obj, lv_event_t event );
 static void battery_experimental_switch_event_handler( lv_obj_t * obj, lv_event_t event );
 static void battery_high_voltage_switch_event_handler( lv_obj_t * obj, lv_event_t event );
+static void battery_logging_switch_event_handler( lv_obj_t * obj, lv_event_t event );
 void battery_set_experimental_indicator( void );
 
 void battery_settings_tile_setup( void ) {
@@ -69,112 +71,26 @@ void battery_settings_tile_setup( void ) {
     battery_setup_icon = setup_register( "battery", &battery_icon_64px, enter_battery_setup_event_cb );
     setup_hide_indicator( battery_setup_icon );
 
-    lv_obj_t *exit_btn = lv_imgbtn_create( battery_settings_tile, NULL);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_RELEASED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_PRESSED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_RELEASED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_PRESSED, &exit_32px);
-    lv_obj_add_style( exit_btn, LV_IMGBTN_PART_MAIN, &battery_settings_style );
-    lv_obj_align( exit_btn, battery_settings_tile, LV_ALIGN_IN_TOP_LEFT, 10, STATUSBAR_HEIGHT + 10 );
-    lv_obj_set_event_cb( exit_btn, exit_battery_setup_event_cb );
-    
-    lv_obj_t *exit_label = lv_label_create( battery_settings_tile, NULL );
-    lv_obj_add_style( exit_label, LV_OBJ_PART_MAIN, &battery_settings_style  );
-    lv_label_set_text( exit_label, "energy settings");
-    lv_obj_align( exit_label, exit_btn, LV_ALIGN_OUT_RIGHT_MID, 5, 0 );
+    lv_obj_t *header = wf_add_settings_header( battery_settings_tile, "energy settings", exit_battery_setup_event_cb );
+    lv_obj_align( header, battery_settings_tile, LV_ALIGN_IN_TOP_LEFT, 10, STATUSBAR_HEIGHT + 10 );
 
-    lv_obj_t *battery_silence_wakeup_switch_cont = lv_obj_create( battery_settings_tile, NULL );
-    lv_obj_set_size(battery_silence_wakeup_switch_cont, lv_disp_get_hor_res( NULL ) , 32);
-    lv_obj_add_style( battery_silence_wakeup_switch_cont, LV_OBJ_PART_MAIN, &battery_settings_style  );
-    lv_obj_align( battery_silence_wakeup_switch_cont, battery_settings_tile, LV_ALIGN_IN_TOP_RIGHT, 0, 75 );
-    battery_silence_wakeup_switch = lv_switch_create( battery_silence_wakeup_switch_cont, NULL );
-    lv_obj_add_protect( battery_silence_wakeup_switch, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( battery_silence_wakeup_switch, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
-    lv_switch_off( battery_silence_wakeup_switch, LV_ANIM_ON );
-    lv_obj_align( battery_silence_wakeup_switch, battery_silence_wakeup_switch_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0 );
-    lv_obj_set_event_cb( battery_silence_wakeup_switch, battery_silence_wakeup_switch_event_handler );
-    lv_obj_t *battery_silence_wakeup_label = lv_label_create( battery_silence_wakeup_switch_cont, NULL);
-    lv_obj_add_style( battery_silence_wakeup_label, LV_OBJ_PART_MAIN, &battery_settings_style  );
-    lv_label_set_text( battery_silence_wakeup_label, "silence wakeup");
-    lv_obj_align( battery_silence_wakeup_label, battery_silence_wakeup_switch_cont, LV_ALIGN_IN_LEFT_MID, 5, 0 );
+    lv_obj_t *battery_silence_wakeup_switch_cont = wf_add_labeled_switch( battery_settings_tile, "silence wakeup", &battery_silence_wakeup_switch, pmu_get_silence_wakeup(), battery_silence_wakeup_switch_event_handler );
+    lv_obj_align( battery_silence_wakeup_switch_cont, header, LV_ALIGN_OUT_BOTTOM_MID, 0, 2 );
 
-    lv_obj_t *battery_setup_label_cont = lv_obj_create( battery_settings_tile, NULL );
-    lv_obj_set_size(battery_setup_label_cont, lv_disp_get_hor_res( NULL ) , 32);
-    lv_obj_add_style( battery_setup_label_cont, LV_OBJ_PART_MAIN, &battery_settings_style  );
-    lv_obj_align( battery_setup_label_cont, battery_silence_wakeup_switch_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 0 );
-    lv_obj_t *battery_setup_label = lv_label_create( battery_setup_label_cont, NULL);
-    lv_obj_add_style( battery_setup_label, LV_OBJ_PART_MAIN, &battery_settings_style  );
-    lv_label_set_text( battery_setup_label, "experimental functions");
-    lv_obj_align( battery_setup_label, battery_setup_label_cont, LV_ALIGN_IN_LEFT_MID, 5, 0 );
+    lv_obj_t *battery_logging_switch_cont = wf_add_labeled_switch( battery_settings_tile, "write pmu stats", &battery_logging_switch, pmu_get_logging(), battery_logging_switch_event_handler );
+    lv_obj_align( battery_logging_switch_cont, battery_silence_wakeup_switch_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 2 );
 
-    lv_obj_t *battery_percent_switch_cont = lv_obj_create( battery_settings_tile, NULL );
-    lv_obj_set_size(battery_percent_switch_cont, lv_disp_get_hor_res( NULL ) , 32);
-    lv_obj_add_style( battery_percent_switch_cont, LV_OBJ_PART_MAIN, &battery_settings_style  );
-    lv_obj_align( battery_percent_switch_cont, battery_setup_label_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 0 );
-    battery_percent_switch = lv_switch_create( battery_percent_switch_cont, NULL );
-    lv_obj_add_protect( battery_percent_switch, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( battery_percent_switch, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
-    lv_switch_off( battery_percent_switch, LV_ANIM_ON );
-    lv_obj_align( battery_percent_switch, battery_percent_switch_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0 );
-    lv_obj_set_event_cb( battery_percent_switch, battery_percent_switch_event_handler );
-    lv_obj_t *stepcounter_label = lv_label_create( battery_percent_switch_cont, NULL);
-    lv_obj_add_style( stepcounter_label, LV_OBJ_PART_MAIN, &battery_settings_style  );
-    lv_label_set_text( stepcounter_label, "calculated percent");
-    lv_obj_align( stepcounter_label, battery_percent_switch_cont, LV_ALIGN_IN_LEFT_MID, 5, 0 );
+    lv_obj_t *battery_setup_label_cont = wf_add_label_container( battery_settings_tile, "experimental functions" );
+    lv_obj_align( battery_setup_label_cont, battery_logging_switch_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 2 );
 
-    lv_obj_t *battery_experimental_switch_cont = lv_obj_create( battery_settings_tile, NULL );
-    lv_obj_set_size(battery_experimental_switch_cont, lv_disp_get_hor_res( NULL ) , 32);
-    lv_obj_add_style( battery_experimental_switch_cont, LV_OBJ_PART_MAIN, &battery_settings_style  );
-    lv_obj_align( battery_experimental_switch_cont, battery_percent_switch_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 0 );
-    battery_experimental_switch = lv_switch_create( battery_experimental_switch_cont, NULL );
-    lv_obj_add_protect( battery_experimental_switch, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( battery_experimental_switch, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
-    lv_switch_off( battery_experimental_switch, LV_ANIM_ON );
-    lv_obj_align( battery_experimental_switch, battery_experimental_switch_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0 );
-    lv_obj_set_event_cb( battery_experimental_switch, battery_experimental_switch_event_handler );
-    lv_obj_t *doubleclick_label = lv_label_create( battery_experimental_switch_cont, NULL);
-    lv_obj_add_style( doubleclick_label, LV_OBJ_PART_MAIN, &battery_settings_style  );
-    lv_label_set_text( doubleclick_label, "power save");
-    lv_obj_align( doubleclick_label, battery_experimental_switch_cont, LV_ALIGN_IN_LEFT_MID, 5, 0 );
+    lv_obj_t *battery_percent_switch_cont = wf_add_labeled_switch( battery_settings_tile, "calculated percent", &battery_percent_switch, pmu_get_calculated_percent(), battery_percent_switch_event_handler );
+    lv_obj_align( battery_percent_switch_cont, battery_setup_label_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 2 );
 
-    lv_obj_t *battery_high_voltage_switch_cont = lv_obj_create( battery_settings_tile, NULL );
-    lv_obj_set_size(battery_high_voltage_switch_cont, lv_disp_get_hor_res( NULL ) , 32);
-    lv_obj_add_style( battery_high_voltage_switch_cont, LV_OBJ_PART_MAIN, &battery_settings_style  );
-    lv_obj_align( battery_high_voltage_switch_cont, battery_experimental_switch_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 0 );
-    battery_high_voltage_switch = lv_switch_create( battery_high_voltage_switch_cont, NULL );
-    lv_obj_add_protect( battery_high_voltage_switch, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( battery_high_voltage_switch, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
-    lv_switch_off( battery_high_voltage_switch, LV_ANIM_ON );
-    lv_obj_align( battery_high_voltage_switch, battery_high_voltage_switch_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0 );
-    lv_obj_set_event_cb( battery_high_voltage_switch, battery_high_voltage_switch_event_handler );
-    lv_obj_t *battery_high_voltage_label = lv_label_create( battery_high_voltage_switch_cont, NULL);
-    lv_obj_add_style( battery_high_voltage_label, LV_OBJ_PART_MAIN, &battery_settings_style  );
-    lv_label_set_text( battery_high_voltage_label, "high charging voltage");
-    lv_obj_align( battery_high_voltage_label, battery_high_voltage_switch_cont, LV_ALIGN_IN_LEFT_MID, 5, 0 );
+    lv_obj_t *battery_experimental_switch_cont = wf_add_labeled_switch( battery_settings_tile, "power save", &battery_experimental_switch, pmu_get_experimental_power_save(), battery_experimental_switch_event_handler );
+    lv_obj_align( battery_experimental_switch_cont, battery_percent_switch_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 2 );
 
-
-    if ( pmu_get_calculated_percent() )
-        lv_switch_on( battery_percent_switch, LV_ANIM_OFF);
-    else
-        lv_switch_off( battery_percent_switch, LV_ANIM_OFF);
-
-    if ( pmu_get_experimental_power_save() ) {
-        lv_switch_on( battery_experimental_switch, LV_ANIM_OFF);
-    }
-    else
-        lv_switch_off( battery_experimental_switch, LV_ANIM_OFF);
-
-    if ( pmu_get_silence_wakeup() ) {
-        lv_switch_on( battery_silence_wakeup_switch, LV_ANIM_OFF);
-    }
-    else
-        lv_switch_off( battery_silence_wakeup_switch, LV_ANIM_OFF);
-
-    if ( pmu_get_high_charging_target_voltage() ) {
-        lv_switch_on( battery_high_voltage_switch, LV_ANIM_OFF);
-    }
-    else
-        lv_switch_off( battery_high_voltage_switch, LV_ANIM_OFF);
+    lv_obj_t *battery_high_voltage_switch_cont = wf_add_labeled_switch( battery_settings_tile, "high bat voltage", &battery_high_voltage_switch, pmu_get_high_charging_target_voltage(), battery_high_voltage_switch_event_handler );
+    lv_obj_align( battery_high_voltage_switch_cont, battery_experimental_switch_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 2 );
 
     battery_set_experimental_indicator();
 }
@@ -206,6 +122,13 @@ static void battery_percent_switch_event_handler( lv_obj_t * obj, lv_event_t eve
 static void battery_high_voltage_switch_event_handler( lv_obj_t * obj, lv_event_t event ) {
     switch( event ) {
         case( LV_EVENT_VALUE_CHANGED ): pmu_set_high_charging_target_voltage( lv_switch_get_state( obj ) );
+                                        break;
+    }
+}
+
+static void battery_logging_switch_event_handler( lv_obj_t * obj, lv_event_t event ) {
+    switch( event ) {
+        case( LV_EVENT_VALUE_CHANGED ): pmu_set_logging( lv_switch_get_state( obj ) );
                                         break;
     }
 }

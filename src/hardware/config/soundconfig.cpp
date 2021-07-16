@@ -28,6 +28,14 @@ bool sound_config_t::onSave(JsonDocument& doc) {
     doc["enable"] = enable;
     doc["volume"] = volume;
     doc["mosconi-call"] = mosconi_call;
+    /**
+     * adapt from https://github.com/d03n3rfr1tz3/TTGO.T-Watch.2020/commit/cb120a0699d683df078394ca2ffbadf491efe593
+     */
+    doc["silence_timeframe"] = silence_timeframe;
+    doc["silence_start_hour"] = silence_start_hour;
+    doc["silence_start_minute"] = silence_start_minute;
+    doc["silence_end_hour"] = silence_end_hour;
+    doc["silence_end_minute"] = silence_end_minute;
 
     return true;
 }
@@ -37,6 +45,14 @@ bool sound_config_t::onLoad(JsonDocument& doc) {
     volume = doc["volume"] | 100;
     mosconi_call = doc["mosconi-call"];
 
+    /**
+     * adapt from https://github.com/d03n3rfr1tz3/TTGO.T-Watch.2020/commit/cb120a0699d683df078394ca2ffbadf491efe593
+     */
+    silence_timeframe = doc["silence_timeframe"] | false;
+    silence_start_hour = doc["silence_start_hour"] | 0;
+    silence_start_minute = doc["silence_start_minute"] | 0;
+    silence_end_hour = doc["silence_end_hour"] | 0;
+    silence_end_minute = doc["silence_end_minute"] | 0;
     return true;
 }
 
@@ -44,6 +60,14 @@ bool sound_config_t::onDefault( void ) {
     enable = false;
     volume = 100;
     mosconi_call = true;
+    /**
+     * adapt from https://github.com/d03n3rfr1tz3/TTGO.T-Watch.2020/commit/cb120a0699d683df078394ca2ffbadf491efe593
+     */
+    silence_timeframe = false;
+    silence_start_hour = 0;
+    silence_start_minute = 0;
+    silence_end_hour = 0;
+    silence_end_minute = 0;
 
     return true;
 }

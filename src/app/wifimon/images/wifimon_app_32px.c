@@ -159,3 +159,4 @@ const lv_img_dsc_t wifimon_app_32px = {
   .header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA,
   .data = wifimon_app_32px_map,
 };
+

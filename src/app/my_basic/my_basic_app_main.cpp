@@ -29,6 +29,7 @@
 #include "gui/mainbar/main_tile/main_tile.h"
 #include "gui/mainbar/mainbar.h"
 #include "gui/statusbar.h"
+#include "gui/widget_factory.h"
 #include "gui/widget_styles.h"
 
 #include "bas_arduino.h"
@@ -59,6 +60,11 @@ static lv_style_t my_basic_cont_main_style;
 static lv_obj_t *my_basic_output_label;
 static lv_style_t my_basic_output_style;
 #endif 
+struct mb_interpreter_t* bas = NULL;
+char * buffer = NULL;
+#define MyBasicThreads 4
+const char *BasFileName = "/spiffs/myfile.bas";
+#define dbg(x) Serial.println(x)
 
 void my_basic_app_main_setup( uint32_t tile_num ) {
 
@@ -115,10 +121,6 @@ void my_basic_app_main_setup( uint32_t tile_num ) {
     lv_obj_set_event_cb( reload_btn, refresh_output_event_cb );
 
 
-
-
-
-
     // create an task that runs every secound
     _my_basic_app_task = lv_task_create( my_basic_app_task, 1000, LV_TASK_PRIO_MID, NULL );
 }
@@ -133,7 +135,8 @@ static void enter_my_basic_app_setup_event_cb( lv_obj_t * obj, lv_event_t event 
 
 static void exit_my_basic_app_main_event_cb( lv_obj_t * obj, lv_event_t event ) {
     switch( event ) {
-        case( LV_EVENT_CLICKED ):       mainbar_jump_to_maintile( LV_ANIM_OFF );
+        case( LV_EVENT_CLICKED ):       CloseBasic();
+                                        mainbar_jump_to_maintile( LV_ANIM_OFF );
                                         break;
     }
 }
@@ -146,53 +149,20 @@ static void refresh_output_event_cb( lv_obj_t * obj, lv_event_t event ) {
 }
 
 void my_basic_app_task( lv_task_t * task ) {
-    // put your code her
+    // put your code here
 }
 
 
-static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code) {
-  mb_unrefvar(s);
-  mb_unrefvar(p);
 
-  if (e != SE_NO_ERR) {
-    if (f) {
-      if (e == SE_RN_WRONG_FUNCTION_REACHED) {
-        log_e(
-          "Error:\n    Ln %d, Col %d in Func: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
-          row, col, f,
-          e, abort_code,
-          m
-        );
-      } else {
-        log_e(
-          "Error:\n    Ln %d, Col %d in File: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
-          row, col, f,
-          e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
-          m
-        );
-      }
-    } else {
-      log_e(
-        "Error:\n    Ln %d, Col %d\n    Code %d, Abort Code %d\n    Message: %s.\n",
-        row, col,
-        e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
-        m
-      );
-    }
-  }
-}
 
-bool DoBasic( void ) {
-    struct mb_interpreter_t* bas = NULL;
-    #define dbg(x) Serial.println(x)
-    //#define dbg 
+bool InitBasic ( void ) {
 
     FILE * pFile;
     long lSize;
-    char * buffer;
-    size_t result;
 
-    pFile = fopen ( "/spiffs/myfile.bas" , "r" );
+    size_t result;
+    log_i("Loading %s\r\n", BasFileName);
+    pFile = fopen ( BasFileName, "r" );
     if (pFile==NULL) {Serial.printf ("File error"); return false;}
 
     // obtain file size:
@@ -211,33 +181,113 @@ bool DoBasic( void ) {
 
     // terminate
     fclose (pFile);
+    log_i("Loaded %d bytes of code\r\n", lSize);
+    //log_i("-------------Source----------\n%s-----------End------\n", buffer);
 
     log_i("Free heap: %d\r\n", ESP.getFreeHeap());
     log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
     log_i("My Basic RUN\n");
 
+    /************ my_basic_cont main container (for lvgl integration) *********/
+    my_basic_cont = lv_obj_create(my_basic_app_main_tile, NULL);
+    lv_obj_set_size(my_basic_cont, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL) - 64);
+    lv_style_init(&my_basic_cont_main_style); 
+    lv_style_copy(&my_basic_cont_main_style, &my_basic_app_main_style);
+    lv_style_set_bg_color(&my_basic_cont_main_style, LV_OBJ_PART_MAIN, LV_COLOR_BLUE);
+    lv_obj_add_style(my_basic_cont, LV_OBJ_PART_MAIN, &my_basic_cont_main_style);
+    lv_obj_align(my_basic_cont, my_basic_app_main_tile, LV_ALIGN_IN_TOP_MID, 0, 32);
+
+//#define NoBasObj
+#ifndef NoBasObj    
+    MyBasic.begin(1 /*MyBasicThreads*/, my_basic_cont, &my_basic_cont_main_style);
+    int ret;
+    
+    ret=MyBasic.loadProgram(buffer, BasFileName, my_basic_cont, &my_basic_cont_main_style);
+    log_i("{ MyBasic.loadProgram(\n%s\n, %s, 0x%lx, 0x%lx) } = %d\n", buffer, BasFileName, my_basic_cont, &my_basic_cont_main_style, ret );
+
+#else
 	mb_init();
 	mb_open(&bas);
-    mb_set_error_handler(bas, _on_error);
-    enableArduinoBindings(bas);
-#ifdef UseOutputLabel
-    enableLVGLprint(bas, my_basic_output_label);
-#else
-    enableSerialPrint(bas);
+  enableArduinoBindings(bas);
+  #ifdef UseOutputLabel
+      enableLVGLprint(bas, my_basic_output_label);
+  #else
+      enableSerialPrint(bas);
+  #endif
+  log_i("il puntatore all'oggetto lv è 0x%lx \n", my_basic_cont);
+  enableLVGL(bas, my_basic_cont, &my_basic_cont_main_style);
+  enableFileModule(bas);
+  enableVariousModule(bas);
+  //mb_remove_func(bas,"DELAY");
+  //mb_register_func(bas, "DELAY", bas_delay_rtos);
+  mb_set_error_handler(bas, _on_error);
+  mb_load_string(bas, buffer, true);
 #endif
-    enableLVGL(bas, my_basic_cont, &my_basic_cont_main_style);
-    enableFileModule(bas);
-    enableVariousModule(bas);
-	mb_load_string(bas, buffer, true);
-	mb_run(bas, true);
-	mb_close(&bas);
-	mb_dispose();
 
-    log_i("My Basic END\r\n");
-
-    log_i("Free heap: %d\r\n", ESP.getFreeHeap());
-    log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
-    free (buffer);
   return true;
 }
 
+bool DoBasic( void ) {
+    InitBasic();
+#ifndef NoBasObj
+    MyBasic.updateProgram(buffer, BasFileName);      
+    MyBasic.runLoaded(BasFileName);  
+#else
+    mb_run(bas, true);
+    return true;
+#endif
+}
+
+void CloseBasic (void) {
+#ifndef NoBasObj
+  MyBasic.closeProgram(BasFileName);
+#else
+  lv_obj_clean(my_basic_cont);
+  lv_obj_del(my_basic_cont);
+  mb_close(&bas);
+  mb_dispose();
+#endif
+  
+  log_i("My Basic END\r\n");
+
+  log_i("Free heap: %d\r\n", ESP.getFreeHeap());
+  log_i("Free PSRAM: %d\r\n", ESP.getFreePsram());
+  free (buffer);
+}
+
+#ifdef NoBasObj
+static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code);
+static void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code) {
+    mb_unrefvar(s);
+    mb_unrefvar(p);
+
+    if (e != SE_NO_ERR) {
+        if (f) {
+            if (e == SE_RN_WRONG_FUNCTION_REACHED) {
+                log_e(
+                    "Error:\n    Ln %d, Col %d in Func: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
+                    row, col, f,
+                    e, abort_code,
+                    m
+                );
+            }
+            else {
+                log_e(
+                    "Error:\n    Ln %d, Col %d in File: %s\n    Code %d, Abort Code %d\n    Message: %s.\n",
+                    row, col, f,
+                    e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
+                    m
+                );
+            }
+        }
+        else {
+            log_e(
+                "Error:\n    Ln %d, Col %d\n    Code %d, Abort Code %d\n    Message: %s.\n",
+                row, col,
+                e, e == SE_EA_EXTENDED_ABORT ? abort_code - MB_EXTENDED_ABORT : abort_code,
+                m
+            );
+        }
+    }
+}
+#endif

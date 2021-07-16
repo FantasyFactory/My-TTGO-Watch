@@ -31,13 +31,15 @@ class _MyBasic
 {
 
     public:
-    void begin(char);
+    void begin(char,  lv_obj_t *, lv_style_t *);
     void yield();
     int updateProgram(const char *, const char *);
     void runLoaded(const char *);
-    int loadProgram(const char *, const char *);
-
-    int appendInput(const char * data, int len,const char * id);
+    //int loadProgram(const char *, const char *);
+    int loadProgram(const char * code, const char * id, lv_obj_t *my_basic_cont = NULL, lv_style_t *my_basic_cont_main_style = NULL);
+    int appendInput(const char * data, int len, const char * id);
+    void setLv( const char *id, lv_obj_t *, lv_style_t *);
+    void closeProgram(const char *);
 
     mb_interpreter_t * rootInterpreter;
     
@@ -45,8 +47,10 @@ class _MyBasic
     void lock();
     void unlock();
 
-    int stackSize = 2048;
+    int stackSize = 8192;
 
 };
 
+void _on_error(struct mb_interpreter_t* s, mb_error_e e, const char* m, const char* f, int p, unsigned short row, unsigned short col, int abort_code);
+int bas_delay_rtos(struct mb_interpreter_t* s, void** l);
 extern _MyBasic MyBasic;

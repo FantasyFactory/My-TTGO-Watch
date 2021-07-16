@@ -29,13 +29,14 @@
 #include "gui/mainbar/main_tile/main_tile.h"
 #include "gui/statusbar.h"
 #include "gui/keyboard.h"
+#include "gui/widget_factory.h"
 #include "gui/widget_styles.h"
 
 #include "hardware/blectl.h"
 #include "hardware/motor.h"
 #include "hardware/gpsctl.h"
 
-#include "utils/json_psram_allocator.h"
+#include "quickglui/common/bluejsonrequest.h"
 
 lv_obj_t *weather_setup_tile = NULL;
 lv_style_t weather_setup_style;
@@ -51,8 +52,6 @@ lv_obj_t *weather_imperial_onoff = NULL;
 lv_obj_t *weather_widget_onoff = NULL;
 lv_style_t weather_widget_setup_style;
 
-LV_IMG_DECLARE(exit_32px);
-
 static void weather_textarea_event_cb( lv_obj_t * obj, lv_event_t event );
 static void weather_num_textarea_event_cb( lv_obj_t * obj, lv_event_t event );
 static void exit_weather_widget_setup_event_cb( lv_obj_t * obj, lv_event_t event );
@@ -63,7 +62,7 @@ static void weather_widget_onoff_event_handler(lv_obj_t *obj, lv_event_t event);
 
 bool weather_gpsctl_app_use_location_event_cb( EventBits_t event, void *arg );
 bool weather_bluetooth_message_event_cb( EventBits_t event, void *arg );
-static void weather_bluetooth_message_msg_pharse( const char* msg );
+static void weather_bluetooth_message_msg_pharse( BluetoothJsonRequest &doc );
 
 void weather_setup_tile_setup( uint32_t tile_num ) {
 
@@ -75,19 +74,9 @@ void weather_setup_tile_setup( uint32_t tile_num ) {
     lv_style_copy( &weather_setup_style, ws_get_setup_tile_style() );
     lv_obj_add_style( weather_setup_tile, LV_OBJ_PART_MAIN, &weather_setup_style );
 
-    lv_obj_t *exit_btn = lv_imgbtn_create( weather_setup_tile, NULL);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_RELEASED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_PRESSED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_RELEASED, &exit_32px);
-    lv_imgbtn_set_src( exit_btn, LV_BTN_STATE_CHECKED_PRESSED, &exit_32px);
-    lv_obj_add_style( exit_btn, LV_IMGBTN_PART_MAIN, &weather_setup_style );
-    lv_obj_align( exit_btn, weather_setup_tile, LV_ALIGN_IN_TOP_LEFT, 10, 10 );
-    lv_obj_set_event_cb( exit_btn, exit_weather_widget_setup_event_cb );
-    
-    lv_obj_t *exit_label = lv_label_create( weather_setup_tile, NULL);
-    lv_obj_add_style( exit_label, LV_OBJ_PART_MAIN, &weather_setup_style  );
-    lv_label_set_text( exit_label, "open weather setup");
-    lv_obj_align( exit_label, exit_btn, LV_ALIGN_OUT_RIGHT_MID, 5, 0 );
+    lv_obj_t *header = wf_add_settings_header( weather_setup_tile, "open weather setup", exit_weather_widget_setup_event_cb );
+    //lv_obj_align( header, weather_setup_tile, LV_ALIGN_IN_TOP_LEFT, 10, 10 );
+
     lv_obj_t *weather_apikey_cont = lv_obj_create( weather_setup_tile, NULL );
     lv_obj_set_size(weather_apikey_cont, lv_disp_get_hor_res( NULL ) , 35);
     lv_obj_add_style( weather_apikey_cont, LV_OBJ_PART_MAIN, &weather_setup_style  );
@@ -145,10 +134,7 @@ void weather_setup_tile_setup( uint32_t tile_num ) {
     lv_obj_set_size( weather_autosync_cont, lv_disp_get_hor_res( NULL ) , 30);
     lv_obj_add_style( weather_autosync_cont, LV_OBJ_PART_MAIN, &weather_setup_style  );
     lv_obj_align( weather_autosync_cont, weather_lat_cont, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 5 );
-    weather_autosync_onoff = lv_switch_create( weather_autosync_cont, NULL );
-    lv_obj_add_protect( weather_autosync_onoff, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( weather_autosync_onoff, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
-    lv_switch_off( weather_autosync_onoff, LV_ANIM_ON );
+    weather_autosync_onoff = wf_add_switch( weather_autosync_cont, false );
     lv_obj_align( weather_autosync_onoff, weather_autosync_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0 );
     lv_obj_set_event_cb( weather_autosync_onoff, weather_autosync_onoff_event_handler );
     lv_obj_t *weather_autosync_label = lv_label_create( weather_autosync_cont, NULL);
@@ -160,10 +146,7 @@ void weather_setup_tile_setup( uint32_t tile_num ) {
     lv_obj_set_size( weather_wind_cont, lv_disp_get_hor_res( NULL ), 30);
     lv_obj_add_style( weather_wind_cont, LV_OBJ_PART_MAIN, &weather_setup_style );
     lv_obj_align( weather_wind_cont, weather_autosync_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 0 );
-    weather_wind_onoff = lv_switch_create( weather_wind_cont, NULL);
-    lv_obj_add_protect( weather_wind_onoff, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( weather_wind_onoff, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
-    lv_switch_off( weather_wind_onoff, LV_ANIM_ON);
+    weather_wind_onoff = wf_add_switch( weather_wind_cont, false );
     lv_obj_align( weather_wind_onoff, weather_wind_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0);
     lv_obj_set_event_cb( weather_wind_onoff, weather_wind_onoff_event_handler);
     lv_obj_t *weather_wind_label = lv_label_create(weather_wind_cont, NULL);
@@ -175,10 +158,7 @@ void weather_setup_tile_setup( uint32_t tile_num ) {
     lv_obj_set_size( weather_imperial_cont, lv_disp_get_hor_res( NULL ), 30);
     lv_obj_add_style( weather_imperial_cont, LV_OBJ_PART_MAIN, &weather_setup_style );
     lv_obj_align( weather_imperial_cont, weather_wind_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 0 );
-    weather_imperial_onoff = lv_switch_create( weather_imperial_cont, NULL);
-    lv_obj_add_protect( weather_imperial_onoff, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( weather_imperial_onoff, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
-    lv_switch_off( weather_imperial_onoff, LV_ANIM_ON);
+    weather_imperial_onoff = wf_add_switch( weather_imperial_cont, false );
     lv_obj_align( weather_imperial_onoff, weather_imperial_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0);
     lv_obj_set_event_cb( weather_imperial_onoff, weather_imperial_onoff_event_handler);
     lv_obj_t *weather_imperial_label = lv_label_create(weather_imperial_cont, NULL);
@@ -190,10 +170,7 @@ void weather_setup_tile_setup( uint32_t tile_num ) {
     lv_obj_set_size( weather_widget_cont, lv_disp_get_hor_res( NULL ), 30);
     lv_obj_add_style( weather_widget_cont, LV_OBJ_PART_MAIN, &weather_setup_style );
     lv_obj_align( weather_widget_cont, weather_imperial_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 0 );
-    weather_widget_onoff = lv_switch_create( weather_widget_cont, NULL);
-    lv_obj_add_protect( weather_widget_onoff, LV_PROTECT_CLICK_FOCUS);
-    lv_obj_add_style( weather_widget_onoff, LV_SWITCH_PART_INDIC, ws_get_switch_style() );
-    lv_switch_off( weather_widget_onoff, LV_ANIM_ON);
+    weather_widget_onoff = wf_add_switch( weather_widget_cont, false );
     lv_obj_align( weather_widget_onoff, weather_widget_cont, LV_ALIGN_IN_RIGHT_MID, -5, 0);
     lv_obj_set_event_cb( weather_widget_onoff, weather_widget_onoff_event_handler);
     lv_obj_t *weather_widget_label = lv_label_create( weather_widget_cont, NULL);
@@ -221,7 +198,7 @@ void weather_setup_tile_setup( uint32_t tile_num ) {
     else
         lv_switch_off( weather_widget_onoff, LV_ANIM_OFF );
 
-    blectl_register_cb( BLECTL_MSG, weather_bluetooth_message_event_cb, "weather setup" );
+    blectl_register_cb( BLECTL_MSG_JSON, weather_bluetooth_message_event_cb, "weather setup" );
     gpsctl_register_cb( GPSCTL_SET_APP_LOCATION, weather_gpsctl_app_use_location_event_cb, "gpsctl weather");
 }
 
@@ -283,47 +260,37 @@ static void exit_weather_widget_setup_event_cb( lv_obj_t * obj, lv_event_t event
                                             strlcpy( weather_config->lat, lv_textarea_get_text( weather_lat_textfield ), sizeof( weather_config->lat ) );
                                             strlcpy( weather_config->lon, lv_textarea_get_text( weather_lon_textfield ), sizeof( weather_config->lon ) );
                                             weather_save_config();
-                                            weather_jump_to_forecast();
+                                            mainbar_jump_back();
                                             break;
     }
 }
 
 bool weather_bluetooth_message_event_cb( EventBits_t event, void *arg ) {
     switch( event ) {
-        case BLECTL_MSG:            weather_bluetooth_message_msg_pharse( (const char*)arg );
+        case BLECTL_MSG_JSON:       weather_bluetooth_message_msg_pharse( *(BluetoothJsonRequest*)arg );
                                     break;
     }
     return( true );
 }
 
-void weather_bluetooth_message_msg_pharse( const char* msg ) {
+void weather_bluetooth_message_msg_pharse( BluetoothJsonRequest &doc ) {
+    if( !strcmp( doc["t"], "conf" ) ) {
+        if ( !strcmp( doc["app"], "weather" ) ) {
 
-    SpiRamJsonDocument doc( strlen( msg ) * 4 );
+            weather_config_t *weather_config = weather_get_config();
+            strlcpy( weather_config->apikey, doc["apikey"] |"", sizeof( weather_config->apikey ) );
+            strlcpy( weather_config->lat, doc["lat"] | "", sizeof( weather_config->lat ) );
+            strlcpy( weather_config->lon, doc["lon"] | "", sizeof( weather_config->lon ) );
+            weather_save_config();
 
-    DeserializationError error = deserializeJson( doc, msg );
-    if ( error ) {
-        log_e("bluetooth message deserializeJson() failed: %s", error.c_str() );
-    }
-    else {
-        if( !strcmp( doc["t"], "conf" ) ) {
-            if ( !strcmp( doc["app"], "weather" ) ) {
+            lv_textarea_set_text( weather_apikey_textfield, weather_config->apikey );
+            lv_textarea_set_text( weather_lat_textfield, weather_config->lat );
+            lv_textarea_set_text( weather_lon_textfield, weather_config->lon );
 
-                weather_config_t *weather_config = weather_get_config();
-                strlcpy( weather_config->apikey, doc["apikey"] |"", sizeof( weather_config->apikey ) );
-                strlcpy( weather_config->lat, doc["lat"] | "", sizeof( weather_config->lat ) );
-                strlcpy( weather_config->lon, doc["lon"] | "", sizeof( weather_config->lon ) );
-                weather_save_config();
-
-                lv_textarea_set_text( weather_apikey_textfield, weather_config->apikey );
-                lv_textarea_set_text( weather_lat_textfield, weather_config->lat );
-                lv_textarea_set_text( weather_lon_textfield, weather_config->lon );
-
-                motor_vibe(100);
-            }
-
+            motor_vibe(100);
         }
-    }        
-    doc.clear();
+
+    }
 }
 
 bool weather_gpsctl_app_use_location_event_cb( EventBits_t event, void *arg ) {
